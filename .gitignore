@@ -1,0 +1,111 @@
+# =========================
+# Environment files
+# =========================
+.env
+.env.*
+!.env.example
+
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+backend/.venv/
+backend/venv/
+
+# =========================
+# VS Code
+# =========================
+.vscode/
+.history/
+
+# =========================
+# macOS
+# =========================
+.DS_Store
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# SQLite
+# =========================
+*.db
+*.sqlite3
+
+# =========================
+# Alembic
+# =========================
+alembic/versions/__pycache__/
+
+# =========================
+# Node / Next.js
+# =========================
+node_modules/
+frontend/node_modules/
+
+.next/
+frontend/.next/
+
+out/
+dist/
+coverage/
+
+# npm / pnpm / yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# IDE
+# =========================
+.idea/
+*.swp
+*.swo
+
+# =========================
+# OS
+# =========================
+Thumbs.db
+
+# =========================
+# Build artifacts
+# =========================
+build/
+dist/
+
+# =========================
+# Python executables
+# =========================
+.python-version
+
+# =========================
+# Misc
+# =========================
+*.pem
+*.key
+*.crt

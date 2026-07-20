@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: #FCFBF9;
+  color: #181818;
+}
+
+::selection {
+  background: rgba(201, 106, 40, 0.18);
+}
