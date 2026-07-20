@@ -120,7 +120,7 @@ def _get_credentials(db: Session, user_id: str) -> Credentials:
             code="GMAIL_MISSING_REFRESH_TOKEN",
             status_code=401,
             details="This usually happens when Google skips issuing a refresh_token because it thinks you already granted access before.",
-            suggestion="Go to Settings, disconnect Gmail, then go to https://myaccount.google.com/permissions and remove CareerOS's access there too — then reconnect. That forces Google to issue a fresh refresh_token.",
+            suggestion="Go to Settings, disconnect Gmail, then go to https://myaccount.google.com/permissions and remove Careerstack's access there too — then reconnect. That forces Google to issue a fresh refresh_token.",
         )
 
     creds = Credentials(

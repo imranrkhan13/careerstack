@@ -15,7 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import settings
 from app.core.errors import AppError
 
-logger = logging.getLogger("careeros")
+logger = logging.getLogger("Careerstack")
 
 
 def _envelope(error_dict: dict) -> dict:

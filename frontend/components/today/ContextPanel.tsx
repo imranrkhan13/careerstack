@@ -16,7 +16,7 @@ const SENDER_LABEL: Record<string, string> = {
   gap: "Graph Agent",
   portfolio: "Portfolio Agent",
   history: "History",
-  update: "CareerOS",
+  update: "Careerstack",
 };
 
 export default function ContextPanel({
@@ -58,7 +58,7 @@ export default function ContextPanel({
           {/* Header: sender + date */}
           <div className="px-6 py-5">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-semibold text-text">{SENDER_LABEL[item.kind] ?? "CareerOS"}</span>
+              <span className="text-sm font-semibold text-text">{SENDER_LABEL[item.kind] ?? "Careerstack"}</span>
               {item.created_at && (
                 <span className="text-xs text-muted">{new Date(item.created_at).toLocaleString()}</span>
               )}

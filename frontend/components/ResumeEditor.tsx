@@ -165,7 +165,7 @@ export default function ResumeEditor({ jobDescription }: { jobDescription?: stri
         <p className="text-3xl mb-3">📄</p>
         <p className="text-sm font-medium text-text mb-1.5">Upload your resume once.</p>
         <p className="text-sm text-secondary mb-4">
-          CareerOS remembers it from here on — this is a one-time upload, not something you paste
+          Careerstack remembers it from here on — this is a one-time upload, not something you paste
           again every visit.
         </p>
         <Textarea

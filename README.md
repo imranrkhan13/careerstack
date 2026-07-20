@@ -1,4 +1,4 @@
-# CareerOS
+# Careerstack
 
 The operating system for a software engineer's career. The resume is one artifact
 generated from your Career Graph — not the product.

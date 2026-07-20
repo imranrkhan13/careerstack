@@ -7,7 +7,7 @@ from app.core.error_handlers import register_error_handlers
 from app.routers import graph, today, resume, onboarding, agents, telemetry, applications, timeline, jobs, boardy, auth_google
 from app.events import handlers  # noqa: F401 — importing registers every event subscriber
 
-app = FastAPI(title="CareerOS API", version="0.1.0")
+app = FastAPI(title="Careerstack API", version="0.1.0")
 
 ALLOWED_ORIGINS = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
 

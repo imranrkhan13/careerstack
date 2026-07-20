@@ -11,7 +11,7 @@ from pathlib import Path
 
 from app.core.errors import AppError
 
-OUTPUT_DIR = Path(tempfile.gettempdir()) / "careeros_resumes"
+OUTPUT_DIR = Path(tempfile.gettempdir()) / "Careerstack_resumes"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 

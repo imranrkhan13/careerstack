@@ -9,7 +9,7 @@ import CommandBar from "@/components/CommandBar";
 import DebugDrawer from "@/components/DebugDrawer";
 
 export const metadata = {
-  title: "CareerOS",
+  title: "CareerStack",
   description: "The operating system for your career.",
 };
 

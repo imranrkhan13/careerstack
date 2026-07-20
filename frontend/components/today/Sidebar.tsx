@@ -58,7 +58,7 @@ export default function Sidebar({ active }: { active: string }) {
   return (
     <aside className="hidden lg:flex w-[250px] shrink-0 border-r border-border bg-surface flex-col h-screen sticky top-0">
       <div className="px-5 py-5 flex items-center justify-between">
-        <span className="text-sm font-bold text-text tracking-tight">CareerOS</span>
+        <span className="text-sm font-bold text-text tracking-tight">Careerstack</span>
         <kbd className="text-[10px] font-mono text-muted border border-border rounded px-1.5 py-0.5">⌘K</kbd>
       </div>
 

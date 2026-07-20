@@ -96,7 +96,7 @@ export default function Narrative({
             )}
             <div className="space-y-2">
               {monthMilestones.map((m, i) => {
-                const meta = TYPE_META[m.type] ?? { icon: Circle, source: "CareerOS" };
+                const meta = TYPE_META[m.type] ?? { icon: Circle, source: "Careerstack" };
                 const Icon = meta.icon;
                 const dateKey = m.at.slice(0, 10);
                 return (

@@ -98,7 +98,7 @@ export default function KanbanBoard() {
             <p className="text-3xl mb-3">📄</p>
             <p className="text-sm font-medium text-text mb-1.5">You're ready.</p>
             <p className="text-sm text-secondary mb-5">
-              Start by pasting a job description — CareerOS will create your first application
+              Start by pasting a job description — Careerstack will create your first application
               and match it against what it knows about you.
             </p>
             <Button variant="primary" size="sm" onClick={() => setShowJDFlow(true)}>

@@ -7,7 +7,7 @@ import { api, BoardyThread } from "@/lib/api";
 import { Input, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 
-const REMEMBERED_ADDRESS_KEY = "careeros:boardy_address";
+const REMEMBERED_ADDRESS_KEY = "Careerstack:boardy_address";
 
 export default function ComposeThread({
   onClose,

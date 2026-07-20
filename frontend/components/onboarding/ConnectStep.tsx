@@ -22,7 +22,7 @@ export default function ConnectStep({ onContinue }: { onContinue: () => void }) 
           transition={{ duration: 0.5 }}
           className="text-xs font-mono text-muted tracking-wide mb-4"
         >
-          welcome to careeros
+          welcome to Careerstack
         </motion.p>
         <motion.h1
           initial={{ opacity: 0, y: 6 }}

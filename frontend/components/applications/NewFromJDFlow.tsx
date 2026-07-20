@@ -68,7 +68,7 @@ export default function NewFromJDFlow({
           <>
             <h2 className="text-sm font-semibold text-text mb-1">Paste a job description</h2>
             <p className="text-xs text-muted mb-3">
-              CareerOS will match it against what it already knows about you, create the
+              Careerstack will match it against what it already knows about you, create the
               application, and draft outreach — one flow, no separate steps to run yourself.
             </p>
             <Textarea
