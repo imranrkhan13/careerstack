@@ -109,6 +109,12 @@ dist/
 backend/.build_workspace/
 .build_workspace/
 
+# The generic build/ artifact rule above would otherwise ignore these source dirs.
+!frontend/app/build/
+!frontend/app/build/**
+!frontend/components/build/
+!frontend/components/build/**
+
 # =========================
 # Misc
 # =========================
