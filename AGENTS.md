@@ -66,3 +66,17 @@ These vars have no code defaults, so the backend will not boot without them.
 
 - A stale `frontend/.next` cache can cause a blank page with 404s for `layout.css`/`page.js`
   chunks. Fix: stop the dev server, remove `frontend/.next`, and re-run `npm run dev`.
+
+### Build Workspace feature (`/build`)
+
+- Scoped, review-gated coding agent. Backend lives in `app/services/build_workspace/` — the package
+  is named `build_workspace` (not `build`) deliberately, because the repo's `.gitignore` has a generic
+  `build/` rule; the frontend `frontend/app/build/` and `frontend/components/build/` dirs are tracked
+  only via explicit `!` negations in `.gitignore` (keep those if you move files).
+- Runtime working copies of the demo repo (real git branches + agent edits) are created under
+  `backend/.build_workspace/` (gitignored) from the committed template at
+  `backend/app/build_demo/sample_repo/`. If wiped, they are re-provisioned automatically on demand.
+- The demo repo's verification (`lint`/`typecheck`/`test`/`build`) uses only Node built-ins (no
+  `npm install`), so runs are fast and real. Execution needs an LLM key (brief + edits) and `git`.
+- Branch/PR creation is a labeled **simulation** (no GitHub write access); indexing, edits, verification,
+  and diffs are real on disk.
