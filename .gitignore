@@ -104,6 +104,12 @@ dist/
 .python-version
 
 # =========================
+# Build Workspace runtime working copies (agent branches/edits live here)
+# =========================
+backend/.build_workspace/
+.build_workspace/
+
+# =========================
 # Misc
 # =========================
 *.pem

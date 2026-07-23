@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import Base, engine
 from app.core.config import settings
 from app.core.error_handlers import register_error_handlers
-from app.routers import graph, today, resume, onboarding, agents, telemetry, applications, timeline, jobs, boardy, auth_google
+from app.routers import graph, today, resume, onboarding, agents, telemetry, applications, timeline, jobs, boardy, auth_google, build
 from app.events import handlers  # noqa: F401 — importing registers every event subscriber
 
 app = FastAPI(title="Careerstack API", version="0.1.0")
@@ -32,6 +32,7 @@ app.include_router(timeline.router)
 app.include_router(jobs.router)
 app.include_router(boardy.router)
 app.include_router(auth_google.router)
+app.include_router(build.router)
 
 
 @app.on_event("startup")
