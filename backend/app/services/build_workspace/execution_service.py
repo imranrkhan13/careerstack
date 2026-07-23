@@ -76,10 +76,6 @@ def _now_iso() -> str:
     return datetime.utcnow().isoformat()
 
 
-def _set_steps(run: ExecutionRun, steps: list[dict]) -> None:
-    run.steps = steps
-
-
 def _init_steps() -> list[dict]:
     keys = [
         ("prepare", "Create dedicated branch"),
