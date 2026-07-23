@@ -16,17 +16,36 @@ product/architecture overview and the standard run commands.
 
 The frontend targets the backend via `NEXT_PUBLIC_API_BASE` (defaults to `http://localhost:8000`).
 
+### Configuration (injected secrets)
+
+The backend's required config is provided as OS environment variables (Cursor secrets):
+`DATABASE_URL`, `JWT_SECRET`, `BOARDY_EMAIL_ADDRESS`, `CORS_ALLOWED_ORIGINS`,
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and LLM provider keys
+(`GROQ_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`).
+pydantic-settings gives these OS env vars precedence over `backend/.env`, so they are the source
+of truth. `backend/.env` only holds non-secret local fallbacks (`DEBUG`, `CORS_ALLOWED_ORIGINS`).
+These vars have no code defaults, so the backend will not boot without them.
+
 ### Startup caveats (not handled by the update script)
 
 - PostgreSQL does NOT auto-start on this VM. Start it each session with:
   `sudo pg_ctlcluster 16 main start`
-  The dev database `careerstack` and role `postgres` (password `postgres`) already exist on the
-  snapshot disk; the backend connects via `DATABASE_URL` in `backend/.env`.
-- `backend/.env` is gitignored and already present on the snapshot. It is REQUIRED for the
-  backend to boot: `DATABASE_URL`, `JWT_SECRET`, `BOARDY_EMAIL_ADDRESS`, `GOOGLE_CLIENT_ID`,
-  `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` have no defaults. The Google/Boardy values
-  are placeholders — real Gmail/Boardy features need a real Google Cloud OAuth client.
+- The Postgres role and database must match `DATABASE_URL` (currently role/db `careeros`). They
+  already exist on the snapshot disk. If the `DATABASE_URL` secret's password ever changes, re-sync
+  the role password (run from a shell where `DATABASE_URL` is set):
+  ```bash
+  python3 - <<'PY'
+  import os, urllib.parse as up, subprocess
+  u = up.urlparse(os.environ["DATABASE_URL"])
+  subprocess.run(["sudo","-u","postgres","psql","-c",
+      f"ALTER ROLE {u.username} LOGIN PASSWORD '{u.password}';"])
+  subprocess.run(["sudo","-u","postgres","psql","-tc",
+      f"SELECT 1 FROM pg_database WHERE datname='{u.path.lstrip('/')}'"])
+  PY
+  ```
 - Backend tables are auto-created on startup via SQLAlchemy `create_all` (no Alembic migrations run).
+- Uvicorn `--reload` only reacts to `.py` changes; after editing `backend/.env` or changing secrets,
+  restart the backend process to pick them up.
 
 ### Feature gating without API keys
 
