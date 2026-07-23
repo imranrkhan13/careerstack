@@ -190,7 +190,9 @@ async def _run_pipeline(db, run_id: str) -> None:
 
     scope = req.approved_scope or {}
     allowed_files: list[str] = scope.get("files", [])
-    protected_patterns: list[str] = scope.get("protected", [])
+    # Enforcement uses the HARD-blocked patterns only. Restricted paths (e.g. API routes)
+    # are permitted once they've been explicitly added to allowed_files via expanded approval.
+    blocked_patterns: list[str] = scope.get("blocked") or scope.get("protected", [])
 
     repo_root = ensure_working_copy(repo.id, repo.path)
     if repo_root != repo.path:
@@ -218,7 +220,7 @@ async def _run_pipeline(db, run_id: str) -> None:
     _step(run, "edit", "running"); _commit(db)
     edits, summary = await _generate_edits(req, brief, allowed_files, scope_contents)
 
-    written, out_of_scope = _apply_edits(repo_root, edits, allowed_files, protected_patterns)
+    written, out_of_scope = _apply_edits(repo_root, edits, allowed_files, blocked_patterns)
 
     if out_of_scope:
         # Pause: the agent needs files outside the approved scope.
@@ -397,18 +399,26 @@ def _record_verification(db, run_id, check_name, command, status, output, ms):
     ))
 
 
+def _file_at_ref(repo_root: str, ref: str, path: str) -> str:
+    return gitutil.git(repo_root, "show", f"{ref}:{path}", check=False) or ""
+
+
 def _record_changed_files(db, run, repo_root, base_branch, edits):
     reason_by_path = {e.get("path"): e.get("reason") or "" for e in edits if isinstance(e, dict)}
     for status_code, path in gitutil.diff_name_status(repo_root, base_branch):
         change_type = {"A": "added", "M": "modified", "D": "deleted"}.get(status_code[0], "modified")
         adds, dels = gitutil.numstat_for_file(repo_root, base_branch, path)
         patch = gitutil.diff_for_file(repo_root, base_branch, path)
+        old_content = "" if change_type == "added" else _file_at_ref(repo_root, base_branch, path)
+        new_content = "" if change_type == "deleted" else _file_at_ref(repo_root, "HEAD", path)
         db.add(ChangedFile(
             execution_run_id=run.id,
             path=path,
             change_type=change_type,
             reason=reason_by_path.get(path, ""),
             diff=patch[:20000],
+            old_content=old_content[:40000],
+            new_content=new_content[:40000],
             additions=adds,
             deletions=dels,
         ))

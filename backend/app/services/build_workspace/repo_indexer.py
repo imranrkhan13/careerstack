@@ -155,6 +155,7 @@ def detect_important_areas(root: str) -> dict:
         "frontend": _dir_exists(root, "src", "app", "components", "pages", "public", "styles"),
         "backend": _dir_exists(root, "server", "api", "app/api", "backend", "routes"),
         "auth": _dir_exists(root, "auth", "app/auth", "src/auth"),
+        "billing": _dir_exists(root, "billing", "payments", "payment", "stripe", "app/billing", "src/billing"),
         "database": _dir_exists(root, "db", "database", "prisma", "migrations", "models"),
         "apis": _dir_exists(root, "app/api", "api", "routes", "pages/api"),
         "tests": _dir_exists(root, "test", "tests", "__tests__", "spec"),
@@ -193,32 +194,33 @@ def detect_components(root: str) -> list[dict]:
 
 
 def default_protected_patterns(areas: dict) -> list[dict]:
-    """Sensible default protected paths derived from detected sensitive areas + always-on secret rules."""
+    """Default protected paths derived from detected sensitive areas + always-on secret rules.
+
+    severity:
+      - "blocked": the agent may NEVER edit these (auth, billing, database, secrets).
+      - "restricted": editable only with the user's explicit approval (API routes).
+    """
     patterns: list[dict] = [
-        {"pattern": "**/.env", "reason": "Environment secrets"},
-        {"pattern": "**/.env.*", "reason": "Environment secrets"},
+        {"pattern": "**/.env", "reason": "Environment secrets", "severity": "blocked"},
+        {"pattern": "**/.env.*", "reason": "Environment secrets", "severity": "blocked"},
     ]
     seen = {p["pattern"] for p in patterns}
 
-    def add(pat: str, reason: str):
+    def add(directory: str, reason: str, severity: str):
+        pat = f"{directory.rstrip('/')}/**"
         if pat not in seen:
-            patterns.append({"pattern": f"{pat.rstrip('/')}/**", "reason": reason})
+            patterns.append({"pattern": pat, "reason": reason, "severity": severity})
             seen.add(pat)
 
     for d in areas.get("apis", []):
-        add(d, "API routes")
+        add(d, "API routes", "restricted")
     for d in areas.get("auth", []):
-        add(d, "Authentication")
+        add(d, "Authentication", "blocked")
+    for d in areas.get("billing", []):
+        add(d, "Billing / payments", "blocked")
     for d in areas.get("database", []):
-        add(d, "Database / schema")
-    for d in _billing_dirs_from_areas():
-        add(d, "Billing")
+        add(d, "Database / schema", "blocked")
     return patterns
-
-
-def _billing_dirs_from_areas() -> list[str]:
-    # Placeholder hook; billing dirs are matched by name during protection checks too.
-    return []
 
 
 def build_architecture_summary(stack: dict, areas: dict, routes: list, components: list, file_count: int) -> str:

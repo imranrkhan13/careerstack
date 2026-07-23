@@ -57,6 +57,7 @@ class RequestStatus(str, enum.Enum):
     paused_needs_approval = "paused_needs_approval"
     awaiting_review = "awaiting_review"
     pr_created = "pr_created"
+    merged = "merged"
     revision_requested = "revision_requested"
     discarded = "discarded"
     failed = "failed"
@@ -118,6 +119,9 @@ class ProtectedPath(Base):
     repository_id = Column(String, ForeignKey("bw_repositories.id"), nullable=False, index=True)
     pattern = Column(String, nullable=False)  # e.g. "app/api/**", "**/.env*", "auth/**"
     reason = Column(String, nullable=True)
+    # "blocked" = agent may NEVER edit (auth/billing/db/secrets), even with expanded approval.
+    # "restricted" = not in default scope, but the user may explicitly approve it (e.g. API routes).
+    severity = Column(String, nullable=False, default="blocked")
 
     repository = relationship("Repository", back_populates="protected_paths")
 
@@ -225,6 +229,9 @@ class ChangedFile(Base):
     change_type = Column(String, nullable=False, default="modified")  # added | modified | deleted
     reason = Column(Text, nullable=True)
     diff = Column(Text, nullable=True)  # unified diff for this file
+    # Full base (main) and new (branch) contents, for a side-by-side diff view.
+    old_content = Column(Text, nullable=True)
+    new_content = Column(Text, nullable=True)
     additions = Column(Integer, nullable=False, default=0)
     deletions = Column(Integer, nullable=False, default=0)
 

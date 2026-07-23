@@ -84,7 +84,9 @@ def _serialize_repo(repo: Repository, index: RepositoryIndex | None, protected: 
         "lint_command": repo.lint_command,
         "typecheck_command": repo.typecheck_command,
         "created_at": repo.created_at.isoformat() if repo.created_at else None,
-        "protected_paths": [{"id": p.id, "pattern": p.pattern, "reason": p.reason} for p in protected],
+        "protected_paths": [
+            {"id": p.id, "pattern": p.pattern, "reason": p.reason, "severity": p.severity or "blocked"} for p in protected
+        ],
         "index": _serialize_index(index) if index else None,
     }
 
@@ -147,6 +149,8 @@ def _serialize_run(run: ExecutionRun, db: Session) -> dict:
                 "change_type": c.change_type,
                 "reason": c.reason,
                 "diff": c.diff,
+                "old_content": c.old_content,
+                "new_content": c.new_content,
                 "additions": c.additions,
                 "deletions": c.deletions,
             }
@@ -273,9 +277,23 @@ def _run_index(db: Session, repo: Repository) -> RepositoryIndex:
     existing = db.query(ProtectedPath).filter(ProtectedPath.repository_id == repo.id).count()
     if existing == 0:
         for pd in result["protected_defaults"]:
-            db.add(ProtectedPath(repository_id=repo.id, pattern=pd["pattern"], reason=pd.get("reason")))
+            db.add(ProtectedPath(
+                repository_id=repo.id,
+                pattern=pd["pattern"],
+                reason=pd.get("reason"),
+                severity=pd.get("severity", "blocked"),
+            ))
     db.commit()
     return index
+
+
+def _protected_split(db: Session, repo_id: str) -> tuple[list[str], list[str], list[str]]:
+    """Return (all_patterns, blocked_patterns, restricted_patterns) for a repo."""
+    paths = db.query(ProtectedPath).filter(ProtectedPath.repository_id == repo_id).all()
+    all_p = [p.pattern for p in paths]
+    blocked = [p.pattern for p in paths if (p.severity or "blocked") == "blocked"]
+    restricted = [p.pattern for p in paths if p.severity == "restricted"]
+    return all_p, blocked, restricted
 
 
 # ----------------------------- repo endpoints -----------------------------
@@ -316,6 +334,37 @@ def get_repo(repo_id: str, db: Session = Depends(get_db), user_id: str = Depends
     index = db.query(RepositoryIndex).filter(RepositoryIndex.repository_id == repo.id).order_by(RepositoryIndex.indexed_at.desc().nullslast()).first()
     protected = db.query(ProtectedPath).filter(ProtectedPath.repository_id == repo.id).all()
     return _serialize_repo(repo, index, protected)
+
+
+@router.get("/repos/{repo_id}/file")
+def get_file(repo_id: str, path: str, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    """Return the base (default-branch) content of a file for the editor.
+
+    Secret files (.env, keys) are never served — their contents are hidden from the UI
+    and the AI alike. Protected files ARE viewable (read-only), just not editable by the agent.
+    """
+    from app.services.build_workspace.paths import is_secret_path, matches_any
+    from app.services.build_workspace import gitutil
+
+    repo = _get_repo(db, repo_id, user_id)
+    all_p, blocked, restricted = _protected_split(db, repo.id)
+    secret = is_secret_path(path)
+    is_blocked = matches_any(path, blocked)
+    is_restricted = matches_any(path, restricted)
+    if secret:
+        return {"path": path, "content": None, "secret": True, "protected": True, "restricted": False, "editable": False}
+    try:
+        content = gitutil.git(repo.path, "show", f"{repo.default_branch}:{path}", check=True)
+    except Exception:  # noqa: BLE001
+        content = None
+    return {
+        "path": path,
+        "content": content,
+        "secret": False,
+        "protected": is_blocked,
+        "restricted": is_restricted,
+        "editable": not (is_blocked or is_restricted),
+    }
 
 
 @router.post("/repos/{repo_id}/reindex")
@@ -443,7 +492,8 @@ def approve_scope(cr_id: str, db: Session = Depends(get_db), user_id: str = Depe
     if not brief:
         raise AppError(code="NO_BRIEF", message="Generate a brief before approving scope.", status_code=409)
     scope_files = [f["path"] for f in (brief.files_likely_to_change or []) if f.get("path")]
-    cr.approved_scope = {"files": scope_files, "protected": brief.files_protected or []}
+    _all, blocked, _restricted = _protected_split(db, cr.repository_id)
+    cr.approved_scope = {"files": scope_files, "protected": brief.files_protected or [], "blocked": blocked}
     cr.status = RequestStatus.scope_approved.value
     db.add(Approval(change_request_id=cr.id, kind="scope", decision="approved",
                     scope=cr.approved_scope, decided_by=user_id))
@@ -489,20 +539,25 @@ def expand_approval(cr_id: str, payload: ExpandApprovalPayload, db: Session = De
     cr = _get_cr(db, cr_id, user_id)
     if cr.status != RequestStatus.paused_needs_approval.value:
         raise AppError(code="NOT_PAUSED", message="This request is not paused for approval.", status_code=409)
-    scope = dict(cr.approved_scope or {"files": [], "protected": []})
-    # Never allow expanding into protected/secret paths.
+    scope = dict(cr.approved_scope or {"files": [], "protected": [], "blocked": []})
+    scope.setdefault("files", [])
+    # Never allow expanding into hard-blocked or secret paths. Restricted paths (e.g. API
+    # routes) ARE allowed here — that is the whole point of explicit expanded approval.
     from app.services.build_workspace.paths import is_secret_path, matches_any
-    protected = scope.get("protected", [])
+    _all, blocked, _restricted = _protected_split(db, cr.repository_id)
+    scope["blocked"] = blocked
     added = []
+    rejected = []
     for p in payload.paths:
-        if is_secret_path(p) or matches_any(p, protected):
+        if is_secret_path(p) or matches_any(p, blocked):
+            rejected.append(p)
             continue
         if p not in scope["files"]:
             scope["files"].append(p)
             added.append(p)
     cr.approved_scope = scope
     db.add(Approval(change_request_id=cr.id, kind="expanded_scope", decision="approved",
-                    scope={"added": added}, decided_by=user_id, note=payload.note))
+                    scope={"added": added, "rejected": rejected}, decided_by=user_id, note=payload.note))
     # Re-run execution with the widened scope.
     branch = cr.branch_name or f"agent/change-{cr.id[:8]}"
     run = ExecutionRun(change_request_id=cr.id, branch_name=branch, status="pending", steps=[])
@@ -517,8 +572,34 @@ def expand_approval(cr_id: str, payload: ExpandApprovalPayload, db: Session = De
 def review(cr_id: str, payload: ReviewPayload, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     cr = _get_cr(db, cr_id, user_id)
     decision = payload.decision
-    if decision not in ("pr_created", "revision_requested", "discarded"):
+    if decision not in ("pr_created", "merged", "revision_requested", "discarded"):
         raise AppError(code="BAD_DECISION", message="Unknown review decision.", status_code=400)
+
+    if decision == "merged":
+        repo = db.get(Repository, cr.repository_id)
+        if not repo or not cr.branch_name:
+            raise AppError(code="NOTHING_TO_MERGE", message="No branch to merge.", status_code=409)
+        try:
+            gitutil.checkout(repo.path, repo.default_branch)
+            gitutil.git(
+                repo.path, "merge", "--no-ff", cr.branch_name,
+                "-m", f"Merge {cr.branch_name}: {cr.request_text[:60]}",
+            )
+        except Exception as e:  # noqa: BLE001
+            # Leave the working copy on the default branch; report honestly.
+            gitutil.checkout(repo.path, repo.default_branch)
+            raise AppError(
+                code="MERGE_FAILED",
+                message="The branch could not be merged cleanly into the base.",
+                status_code=409,
+                details=str(e),
+                suggestion="Discard and re-run, or resolve conflicts manually.",
+            )
+        db.add(Approval(change_request_id=cr.id, kind="merge", decision="approved", decided_by=user_id, note=payload.note))
+        cr.status = RequestStatus.merged.value
+        cr.review_decision = decision
+        db.commit()
+        return _serialize_change_request(db, cr, deep=True)
 
     if decision == "pr_created":
         run = _latest_run(db, cr.id)
