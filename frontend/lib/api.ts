@@ -347,3 +347,170 @@ export const api = {
       { id: string; name: string; company: string | null; role: string | null; linkedin_url: string | null; note: string | null; created_at: string }[]
     >("/boardy/network"),
 };
+
+// ============================================================================
+// Build Workspace — scoped, review-gated code-change agent.
+// ============================================================================
+
+export type BuildFileNode = {
+  name: string;
+  path: string;
+  type: "dir" | "file";
+  secret?: boolean;
+  children?: BuildFileNode[];
+};
+export type BuildCommit = { sha: string; author: string; date: string; message: string };
+export type BuildManifest = { path: string; kind: string; data: Record<string, unknown> };
+export type BuildRoute = { path: string; kind: string };
+export type BuildComponent = { name: string; path: string };
+export type BuildIndex = {
+  id: string;
+  status: string;
+  file_tree: BuildFileNode;
+  file_count: number;
+  architecture_summary: string | null;
+  important_areas: Record<string, string[]>;
+  manifests: BuildManifest[];
+  routes: BuildRoute[];
+  components: BuildComponent[];
+  recent_commits: BuildCommit[];
+  indexed_at: string | null;
+  error: string | null;
+};
+export type ProtectedPathT = { id: string; pattern: string; reason: string | null };
+export type BuildRepo = {
+  id: string;
+  name: string;
+  source: string;
+  default_branch: string;
+  detected_stack: { language?: string | null; framework?: string | null };
+  package_manager: string | null;
+  test_command: string | null;
+  build_command: string | null;
+  lint_command: string | null;
+  typecheck_command: string | null;
+  created_at: string | null;
+  protected_paths: ProtectedPathT[];
+  index: BuildIndex | null;
+};
+export type BriefFile = { path: string; reason: string };
+export type ReuseItem = { name?: string; path?: string; why?: string };
+export type BuildBrief = {
+  id: string;
+  goal: string;
+  approach: string;
+  files_likely_to_change: BriefFile[];
+  files_protected: string[];
+  reuse: ReuseItem[];
+  api_impact: string;
+  database_impact: string;
+  auth_impact: string;
+  risks: string[];
+  assumptions: string[];
+  acceptance_criteria: string[];
+  tests_to_run: string[];
+  rollback_plan: string;
+  provider: string | null;
+  created_at: string | null;
+};
+export type BuildStep = { key: string; label: string; status: string; detail: string | null; at: string | null };
+export type BuildChangedFile = {
+  id: string;
+  path: string;
+  change_type: string;
+  reason: string;
+  diff: string;
+  additions: number;
+  deletions: number;
+};
+export type BuildVerification = {
+  id: string;
+  check_name: string;
+  command: string | null;
+  status: string;
+  output: string | null;
+  duration_ms: number;
+};
+export type BuildRun = {
+  id: string;
+  branch_name: string | null;
+  status: string;
+  steps: BuildStep[];
+  agent_instructions: string | null;
+  pending_out_of_scope: { path: string; reason: string }[];
+  error: StructuredError | null;
+  started_at: string | null;
+  finished_at: string | null;
+  changed_files: BuildChangedFile[];
+  verifications: BuildVerification[];
+};
+export type PRLink = {
+  id: string;
+  provider: string;
+  is_simulation: boolean;
+  url: string | null;
+  number: number | null;
+  title: string | null;
+  body: string | null;
+  created_at: string | null;
+};
+export type ApprovalT = { id: string; kind: string; decision: string; note: string | null; created_at: string | null };
+export type ChangeRequestDetail = {
+  id: string;
+  repository_id: string;
+  request_text: string;
+  constraints_text: string | null;
+  acceptance_criteria_text: string | null;
+  risk_level: string;
+  status: string;
+  branch_name: string | null;
+  approved_scope: { files: string[]; protected: string[] } | null;
+  agent_instructions: string | null;
+  review_decision: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  brief?: BuildBrief | null;
+  run?: BuildRun | null;
+  approvals?: ApprovalT[];
+  pr_links?: PRLink[];
+};
+
+export const buildApi = {
+  listRepos: () => request<BuildRepo[]>("/build/repos"),
+  createRepo: () =>
+    request<BuildRepo>("/build/repos", { method: "POST", body: JSON.stringify({ source: "local_demo" }) }),
+  getRepo: (id: string) => request<BuildRepo>(`/build/repos/${id}`),
+  reindex: (id: string) => request<BuildRepo>(`/build/repos/${id}/reindex`, { method: "POST" }),
+  addProtected: (id: string, pattern: string, reason?: string) =>
+    request<ProtectedPathT>(`/build/repos/${id}/protected`, {
+      method: "POST",
+      body: JSON.stringify({ pattern, reason: reason || null }),
+    }),
+  deleteProtected: (pid: string) => request<{ ok: boolean }>(`/build/protected/${pid}`, { method: "DELETE" }),
+  listChangeRequests: (repoId: string) => request<ChangeRequestDetail[]>(`/build/repos/${repoId}/change-requests`),
+  createChangeRequest: (
+    repoId: string,
+    payload: { request_text: string; constraints_text?: string; acceptance_criteria_text?: string; risk_level: string }
+  ) =>
+    request<ChangeRequestDetail>(`/build/repos/${repoId}/change-requests`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getChangeRequest: (crId: string) => request<ChangeRequestDetail>(`/build/change-requests/${crId}`),
+  generateBrief: (crId: string) => request<ChangeRequestDetail>(`/build/change-requests/${crId}/brief`, { method: "POST" }),
+  approveScope: (crId: string) =>
+    request<ChangeRequestDetail>(`/build/change-requests/${crId}/approve-scope`, { method: "POST" }),
+  execute: (crId: string) => request<ChangeRequestDetail>(`/build/change-requests/${crId}/execute`, { method: "POST" }),
+  getRun: (crId: string) =>
+    request<{ change_request_status: string; run: BuildRun }>(`/build/change-requests/${crId}/run`),
+  expandApproval: (crId: string, paths: string[], note?: string) =>
+    request<ChangeRequestDetail>(`/build/change-requests/${crId}/expand-approval`, {
+      method: "POST",
+      body: JSON.stringify({ paths, note: note || null }),
+    }),
+  review: (crId: string, decision: "pr_created" | "revision_requested" | "discarded", note?: string) =>
+    request<ChangeRequestDetail>(`/build/change-requests/${crId}/review`, {
+      method: "POST",
+      body: JSON.stringify({ decision, note: note || null }),
+    }),
+};
