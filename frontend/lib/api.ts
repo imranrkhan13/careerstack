@@ -377,7 +377,7 @@ export type BuildIndex = {
   indexed_at: string | null;
   error: string | null;
 };
-export type ProtectedPathT = { id: string; pattern: string; reason: string | null };
+export type ProtectedPathT = { id: string; pattern: string; reason: string | null; severity?: "blocked" | "restricted" };
 export type BuildRepo = {
   id: string;
   name: string;
@@ -420,6 +420,8 @@ export type BuildChangedFile = {
   change_type: string;
   reason: string;
   diff: string;
+  old_content: string | null;
+  new_content: string | null;
   additions: number;
   deletions: number;
 };
@@ -480,6 +482,10 @@ export const buildApi = {
   createRepo: () =>
     request<BuildRepo>("/build/repos", { method: "POST", body: JSON.stringify({ source: "local_demo" }) }),
   getRepo: (id: string) => request<BuildRepo>(`/build/repos/${id}`),
+  getFile: (repoId: string, path: string) =>
+    request<{ path: string; content: string | null; secret: boolean; protected: boolean; restricted: boolean; editable: boolean }>(
+      `/build/repos/${repoId}/file?path=${encodeURIComponent(path)}`
+    ),
   reindex: (id: string) => request<BuildRepo>(`/build/repos/${id}/reindex`, { method: "POST" }),
   addProtected: (id: string, pattern: string, reason?: string) =>
     request<ProtectedPathT>(`/build/repos/${id}/protected`, {
@@ -508,7 +514,7 @@ export const buildApi = {
       method: "POST",
       body: JSON.stringify({ paths, note: note || null }),
     }),
-  review: (crId: string, decision: "pr_created" | "revision_requested" | "discarded", note?: string) =>
+  review: (crId: string, decision: "pr_created" | "merged" | "revision_requested" | "discarded", note?: string) =>
     request<ChangeRequestDetail>(`/build/change-requests/${crId}/review`, {
       method: "POST",
       body: JSON.stringify({ decision, note: note || null }),
