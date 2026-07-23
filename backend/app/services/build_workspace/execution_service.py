@@ -13,6 +13,7 @@ Guarantees enforced here (this is the whole product):
 import asyncio
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -64,7 +65,11 @@ Return ONLY valid JSON (no markdown fences), exactly:
     {"path": "relative/path", "action": "modify" | "create", "content": "FULL new file content"}
   ],
   "summary": "one sentence on what you changed"
-}"""
+}
+
+The "content" value must be ONLY the raw source code for that file — do NOT include the
+"=== FILE: ... ===" delimiter headers from the prompt, do NOT wrap it in markdown code fences,
+and do NOT add commentary. It is written to disk verbatim, so it must be a valid, complete file."""
 
 
 def _now_iso() -> str:
@@ -281,7 +286,7 @@ async def _generate_edits(req, brief, allowed_files, scope_contents):
     from app.services.provider_manager import complete_json
 
     files_block = "\n\n".join(
-        f"=== FILE: {path} ===\n{content if content else '(new file — does not exist yet)'}"
+        f"----- BEGIN {path} -----\n{content if content else '(new file — does not exist yet)'}\n----- END {path} -----"
         for path, content in scope_contents.items()
     )
     brief_block = json.dumps(
@@ -305,6 +310,29 @@ async def _generate_edits(req, brief, allowed_files, scope_contents):
     edits = data.get("edits") or []
     summary = data.get("summary") or "Applied scoped change"
     return edits, summary
+
+
+def _sanitize_content(content: str) -> str:
+    """Defend against the model echoing prompt scaffolding into file content.
+
+    Strips markdown code fences and any leading file-delimiter header lines
+    (e.g. '=== FILE: x ===', '----- BEGIN x -----') that occasionally leak in.
+    """
+    text = content.replace("\r\n", "\n")
+    # Strip a single wrapping markdown code fence.
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.split("\n")
+        if lines[-1].strip().startswith("```"):
+            text = "\n".join(lines[1:-1])
+    # Drop leading delimiter/echo lines.
+    lines = text.split("\n")
+    while lines and re.match(r"^\s*(===+\s*FILE.*===+|-{3,}\s*(BEGIN|END).*-{3,})\s*$", lines[0]):
+        lines.pop(0)
+    # Drop trailing delimiter lines.
+    while lines and re.match(r"^\s*-{3,}\s*(BEGIN|END).*-{3,}\s*$", lines[-1]):
+        lines.pop()
+    return "\n".join(lines)
 
 
 def _apply_edits(repo_root, edits, allowed_files, protected_patterns):
@@ -331,9 +359,12 @@ def _apply_edits(repo_root, edits, allowed_files, protected_patterns):
         except ValueError:
             out_of_scope.append({"path": path, "reason": "invalid path"})
             continue
+        clean = _sanitize_content(content)
+        if not clean.endswith("\n"):
+            clean += "\n"
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
         with open(abs_path, "w", encoding="utf-8") as fh:
-            fh.write(content)
+            fh.write(clean)
         written.append(path)
     return written, out_of_scope
 
