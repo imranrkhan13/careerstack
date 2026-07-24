@@ -28,7 +28,9 @@ export default function CodeDiff({
 
   useEffect(() => {
     if (!ref.current) return;
-    const readOnly = [EditorView.editable.of(false), EditorState.readOnly.of(true), lineNumbers(), langFor(filename), EditorView.lineWrapping];
+    // No line wrapping in the diff: wrapped continuation lines can overlap the gutter in
+    // MergeView. Instead each pane scrolls horizontally, keeping line numbers aligned.
+    const readOnly = [EditorView.editable.of(false), EditorState.readOnly.of(true), lineNumbers(), langFor(filename)];
     const view = new MergeView({
       a: { doc: oldValue ?? "", extensions: readOnly },
       b: { doc: newValue ?? "", extensions: readOnly },
