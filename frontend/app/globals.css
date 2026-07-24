@@ -14,3 +14,49 @@ body {
 ::selection {
   background: rgba(201, 106, 40, 0.18);
 }
+
+/* ---- Build IDE: side-by-side diff tinting (green additions / red deletions) ---- */
+.cm-merge .cm-mergeView,
+.cm-merge .cm-editor {
+  background: transparent;
+}
+/* deletions (left pane) get a red tint; insertions (right pane) get a green tint */
+.cm-merge .cm-merge-a .cm-changedLine {
+  background-color: rgba(224, 72, 72, 0.10);
+}
+.cm-merge .cm-merge-b .cm-changedLine {
+  background-color: rgba(47, 163, 107, 0.12);
+}
+.cm-merge .cm-changedText {
+  background-color: rgba(47, 163, 107, 0.22);
+}
+.cm-merge .cm-merge-a .cm-changedText {
+  background-color: rgba(224, 72, 72, 0.20);
+}
+.cm-merge .cm-deletedChunk {
+  background-color: rgba(224, 72, 72, 0.08);
+}
+/* colored change-gutter bars serve as the +/- markers */
+.cm-merge .cm-merge-a .cm-changedLineGutter {
+  background-color: rgba(224, 72, 72, 0.55);
+}
+.cm-merge .cm-merge-b .cm-changedLineGutter {
+  background-color: rgba(47, 163, 107, 0.6);
+}
+.cm-merge .cm-gutters {
+  background: #F7F5F2;
+  border-right: 1px solid #ECE7E2;
+  color: #9B9B9B;
+}
+
+/* Subtle pulsing ring to draw attention to an action awaiting the user (e.g. Approve scope) */
+@keyframes ringPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 106, 40, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(201, 106, 40, 0); }
+}
+.pulse-ring {
+  animation: ringPulse 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring { animation: none; }
+}

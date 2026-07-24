@@ -31,6 +31,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Keyboard,
+  Files,
+  GitBranch as GitBranchIcon,
+  CheckCircle2,
+  Copy,
+  FolderGit2,
 } from "lucide-react";
 import { buildApi, BuildRepo, ChangeRequestDetail, BuildRun } from "@/lib/api";
 import Button from "@/components/ui/Button";
@@ -363,7 +368,7 @@ export default function IdePage() {
             max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:top-12 max-lg:z-40 max-lg:shadow-2xl`}
         >
           <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wide text-muted">Explorer</span>
+            <span className="text-[11px] font-mono uppercase tracking-wide text-muted flex items-center gap-1.5"><Files size={12} className="text-signal" /> Explorer</span>
             <span className="text-[10px] font-mono text-muted">{repo.index?.file_count ?? 0} files</span>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -375,7 +380,7 @@ export default function IdePage() {
                 onSelect={(p, sev) => { selectPath(p, sev); setMobileTreeOpen(false); }}
               />
             ) : (
-              <div className="p-3 space-y-2">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-4 w-full" />)}</div>
+              <TreeSkeleton />
             )}
           </div>
           <ProtectedLegend />
@@ -410,19 +415,19 @@ export default function IdePage() {
         >
           <div className="px-3 py-2 border-b border-border flex items-center justify-between">
             <span className="text-[11px] font-mono uppercase tracking-wide text-muted flex items-center gap-1.5">
-              <Sparkles size={12} className="text-signal" /> AI agent
+              <Sparkles size={12} className="text-signal" /> Agent
             </span>
             <div className="flex items-center gap-3">
               {activeCr && (
-                <button onClick={newCommand} className="text-[11px] text-muted hover:text-signal flex items-center gap-1">
+                <button onClick={newCommand} className="text-[11px] text-muted hover:text-signal flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40 rounded px-1">
                   <Plus size={11} /> New command
                 </button>
               )}
-              <button onClick={() => setRightSheetOpen(false)} className="lg:hidden text-muted hover:text-text" aria-label="Close panel"><X size={14} /></button>
+              <button onClick={() => setRightSheetOpen(false)} className="lg:hidden text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40 rounded" aria-label="Close panel"><X size={14} /></button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {!activeCr && (
               <Composer
                 command={command}
@@ -477,10 +482,80 @@ function FullscreenLoading() {
   );
 }
 
+function TreeSkeleton() {
+  const rows = [
+    { d: 0, w: "w-24" }, { d: 1, w: "w-20" }, { d: 1, w: "w-28" }, { d: 0, w: "w-16" },
+    { d: 1, w: "w-24" }, { d: 2, w: "w-20" }, { d: 2, w: "w-16" }, { d: 1, w: "w-24" },
+    { d: 0, w: "w-20" }, { d: 1, w: "w-28" }, { d: 0, w: "w-16" },
+  ];
+  return (
+    <div className="py-2 space-y-2" aria-hidden>
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center gap-2" style={{ paddingLeft: r.d * 12 + 8 }}>
+          <Skeleton className="h-3 w-3 rounded-sm" />
+          <Skeleton className={`h-3 ${r.w}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CodeSkeleton() {
+  const lines = [
+    { i: 0, w: "w-1/3" }, { i: 1, w: "w-2/3" }, { i: 1, w: "w-1/2" }, { i: 2, w: "w-3/5" },
+    { i: 2, w: "w-2/5" }, { i: 1, w: "w-1/2" }, { i: 0, w: "w-1/4" }, { i: 0, w: "w-1/2" },
+    { i: 1, w: "w-3/5" }, { i: 2, w: "w-1/3" }, { i: 1, w: "w-2/5" }, { i: 0, w: "w-1/3" },
+  ];
+  return (
+    <div className="p-4 space-y-2.5" aria-hidden>
+      {lines.map((l, idx) => (
+        <div key={idx} className="flex items-center gap-3">
+          <span className="text-[11px] font-mono text-border w-6 text-right select-none">{idx + 1}</span>
+          <div className="flex-1" style={{ paddingLeft: l.i * 16 }}><Skeleton className={`h-3 ${l.w}`} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TerminalSkeleton() {
+  const rows = ["w-40", "w-3/4", "w-1/2", "w-2/3", "w-1/3"];
+  return (
+    <div className="p-3 space-y-2 animate-pulse" style={{ fontFamily: MONO_STACK }} aria-hidden>
+      {rows.map((w, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-[#3a3a44]">$</span>
+          <div className={`h-3 rounded bg-[#2a2a33] ${w}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Badge({ tone, children }: { tone: "gap" | "warn" | "ok"; children: React.ReactNode }) {
   const cls = tone === "gap" ? "bg-gap/10 text-gap" : tone === "warn" ? "bg-warning/10 text-warning" : "bg-success/10 text-success";
   return <span className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded ${cls}`}>{children}</span>;
 }
+
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  draft: { label: "drafting", cls: "bg-raised text-muted" },
+  brief_ready: { label: "brief ready", cls: "bg-signalLight text-signal" },
+  scope_approved: { label: "scope approved", cls: "bg-success/10 text-success" },
+  executing: { label: "executing", cls: "bg-signalLight text-signal" },
+  paused_needs_approval: { label: "needs approval", cls: "bg-warning/10 text-warning" },
+  awaiting_review: { label: "review", cls: "bg-signalLight text-signal" },
+  merged: { label: "merged", cls: "bg-success/10 text-success" },
+  revision_requested: { label: "revision", cls: "bg-warning/10 text-warning" },
+  discarded: { label: "discarded", cls: "bg-raised text-muted" },
+  failed: { label: "failed", cls: "bg-gap/10 text-gap" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const m = STATUS_META[status] ?? { label: status.replace(/_/g, " "), cls: "bg-raised text-muted" };
+  return <span className={`inline-flex items-center text-[10px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded ${m.cls}`}>{m.label}</span>;
+}
+
+const MONO_STACK = "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace";
 
 function TopBar({
   repo, branch, busy, onReindex, onToggleTree, onToggleRight, onHelp,
@@ -533,22 +608,42 @@ function EditorPane({
   onNext: () => void;
   onRetry: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  async function copyDiff() {
+    if (!selectedChanged?.diff) return;
+    try {
+      await navigator.clipboard.writeText(selectedChanged.diff);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard may be unavailable */
+    }
+  }
+
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="h-9 border-b border-border flex items-center px-3 gap-2 shrink-0 overflow-x-auto">
+        <span className="text-[11px] font-mono uppercase tracking-wide text-muted flex items-center gap-1.5 shrink-0"><FileCode size={12} className="text-signal" /> Editor</span>
+        {selected && <span className="text-border shrink-0">│</span>}
         {selected ? (
           <>
-            <FileCode size={13} className="text-muted shrink-0" />
             <span className="text-xs font-mono text-secondary truncate">{selected.path}</span>
             {selectedChanged && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-signalLight text-signal shrink-0">DIFF vs main</span>}
             {selected.severity === "blocked" && <Badge tone="gap"><Lock size={9} /> protected</Badge>}
             {selected.severity === "restricted" && <Badge tone="warn"><TriangleAlert size={9} /> restricted</Badge>}
             {selected.severity === "secret" && <Badge tone="gap"><EyeOff size={9} /> secret</Badge>}
-            {changedCount > 1 && selectedChanged && (
-              <div className="ml-auto flex items-center gap-1 shrink-0">
-                <span className="text-[10px] font-mono text-muted">{changedIndex + 1}/{changedCount} changed</span>
-                <button onClick={onPrev} className="text-muted hover:text-text p-0.5 rounded focus-visible:ring-2 focus-visible:ring-signal/40" aria-label="Previous changed file"><ChevronLeft size={14} /></button>
-                <button onClick={onNext} className="text-muted hover:text-text p-0.5 rounded focus-visible:ring-2 focus-visible:ring-signal/40" aria-label="Next changed file"><ChevronRight size={14} /></button>
+            {selectedChanged && (
+              <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                {changedCount > 1 && (
+                  <>
+                    <span className="text-[10px] font-mono text-muted">{changedIndex + 1}/{changedCount} changed</span>
+                    <button onClick={onPrev} className="text-muted hover:text-text p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40" aria-label="Previous changed file"><ChevronLeft size={14} /></button>
+                    <button onClick={onNext} className="text-muted hover:text-text p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40" aria-label="Next changed file"><ChevronRight size={14} /></button>
+                  </>
+                )}
+                <button onClick={copyDiff} className="flex items-center gap-1 text-[10px] font-mono text-muted hover:text-signal border border-border rounded px-1.5 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40" aria-label="Copy diff">
+                  {copied ? <><Check size={11} className="text-success" /> Copied</> : <><Copy size={11} /> Copy diff</>}
+                </button>
               </div>
             )}
           </>
@@ -561,7 +656,7 @@ function EditorPane({
         {!selected ? (
           <EmptyEditor />
         ) : selected.loading ? (
-          <div className="p-4 space-y-2">{[0, 1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-3.5 w-full max-w-2xl" />)}</div>
+          <CodeSkeleton />
         ) : selected.error ? (
           <div className="m-4 rounded-lg border border-gap/30 bg-gap/5 p-4">
             <p className="text-sm font-semibold text-gap mb-1">Couldn’t load {selected.path}</p>
@@ -606,10 +701,6 @@ function EmptyEditor() {
 
 const RISKS = ["low", "medium", "high"];
 
-function statusLabel(s: string) {
-  return s.replace(/_/g, " ");
-}
-
 function Composer({
   command, setCommand, constraints, setConstraints, risk, setRisk, busy, error, onDismissError, onSubmit, history, onOpen,
 }: {
@@ -618,55 +709,66 @@ function Composer({
   onSubmit: () => void; history: HistItem[]; onOpen: (id: string) => void;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {error != null && (
         <div className="rounded-lg border border-gap/30 bg-gap/5 p-3">
           <div className="flex items-start justify-between gap-2">
             <p className="text-xs font-semibold text-gap">Couldn’t generate the plan</p>
-            <button onClick={onDismissError} className="text-muted hover:text-gap"><X size={13} /></button>
+            <button onClick={onDismissError} className="text-muted hover:text-gap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40 rounded"><X size={13} /></button>
           </div>
           <p className="text-[11px] text-secondary mt-1">The request failed — this is non-blocking.</p>
           <Button variant="secondary" size="sm" className="mt-2" onClick={onSubmit} disabled={busy}><RefreshCw size={12} /> Retry</Button>
         </div>
       )}
-      <div>
-        <p className="text-xs text-secondary mb-1.5">Tell the agent what to build, in plain English:</p>
+
+      <div className="rounded-xl border border-border bg-gradient-to-b from-surface to-bg p-3 space-y-2">
+        <p className="text-xs text-secondary">Tell the agent what to build, in plain English:</p>
         <textarea
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           rows={4}
           placeholder='e.g. "Add a dark mode toggle to the landing page" — do not change auth, billing, APIs, or the database.'
-          className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm outline-none focus:border-signal/60 focus-visible:ring-2 focus-visible:ring-signal/20 resize-none"
+          className="w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-signal/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/30 resize-none"
           onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onSubmit(); }}
         />
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted">⌘/Ctrl + Enter to submit</span>
+          <span className="text-[10px] font-mono text-muted">{command.length} chars</span>
+        </div>
+        <input
+          value={constraints}
+          onChange={(e) => setConstraints(e.target.value)}
+          placeholder="Constraints (optional): Do not change…"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs outline-none focus:border-signal/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/30"
+        />
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono uppercase text-muted">Risk</span>
+          {RISKS.map((r) => (
+            <button key={r} onClick={() => setRisk(r)} className={`text-xs px-2 py-1 rounded-md capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40 ${risk === r ? "bg-signalLight text-signal" : "text-muted hover:text-text"}`}>{r}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="primary" onClick={onSubmit} disabled={busy || !command.trim()} className="flex-1">
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Generate change plan
+          </Button>
+          <span className="text-[10px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded bg-raised text-muted shrink-0">{command.trim() ? "ready" : "new"}</span>
+        </div>
       </div>
-      <input
-        value={constraints}
-        onChange={(e) => setConstraints(e.target.value)}
-        placeholder="Constraints (optional): Do not change…"
-        className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-xs outline-none focus:border-signal/60 focus-visible:ring-2 focus-visible:ring-signal/20"
-      />
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-mono uppercase text-muted">Risk</span>
-        {RISKS.map((r) => (
-          <button key={r} onClick={() => setRisk(r)} className={`text-xs px-2 py-1 rounded-md capitalize focus-visible:ring-2 focus-visible:ring-signal/40 ${risk === r ? "bg-signalLight text-signal" : "text-muted hover:text-text"}`}>{r}</button>
-        ))}
-      </div>
-      <Button variant="primary" onClick={onSubmit} disabled={busy || !command.trim()} className="w-full">
-        {busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Generate change plan
-      </Button>
-      <p className="text-[10px] text-muted text-center">⌘/Ctrl + Enter to submit · ? for shortcuts</p>
+      <p className="text-[10px] text-muted text-center">Press ? for keyboard shortcuts</p>
 
-      <div className="pt-2 border-t border-border">
+      <div className="pt-1">
         <p className="text-[11px] font-mono uppercase tracking-wide text-muted mb-1.5">Recent commands</p>
         {history.length === 0 ? (
-          <p className="text-xs text-muted">No commands yet. Your recent commands will appear here.</p>
+          <div className="flex flex-col items-center text-center py-6 text-muted">
+            <Sparkles size={22} className="text-signal/70 mb-2" />
+            <p className="text-xs">Describe a change to get started.</p>
+          </div>
         ) : (
           <div className="space-y-1">
             {history.slice(0, 5).map((r) => (
-              <button key={r.id} onClick={() => onOpen(r.id)} className="w-full text-left rounded-lg border border-border px-2.5 py-2 hover:border-signal/40 hover:bg-raised/40 focus-visible:ring-2 focus-visible:ring-signal/40">
-                <p className="text-xs text-text truncate">{r.text}</p>
-                <p className="text-[10px] font-mono text-muted mt-0.5">{statusLabel(r.status)}</p>
+              <button key={r.id} onClick={() => onOpen(r.id)} className="w-full text-left rounded-lg border border-border px-2.5 py-2 hover:border-signal/40 hover:bg-raised/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40 flex items-center justify-between gap-2">
+                <span className="text-xs text-text truncate">{r.text}</span>
+                <StatusBadge status={r.status} />
               </button>
             ))}
           </div>
@@ -703,8 +805,11 @@ function ActivePanel({
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-border bg-bg px-3 py-2">
-        <p className="text-sm text-text">{cr.request_text}</p>
-        <p className="text-[10px] font-mono text-muted mt-1">{statusLabel(cr.status)}{cr.branch_name ? ` · ${cr.branch_name}` : ""}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm text-text">{cr.request_text}</p>
+          <StatusBadge status={cr.status} />
+        </div>
+        {cr.branch_name && <p className="text-[10px] font-mono text-muted mt-1">{cr.branch_name}</p>}
       </div>
 
       {cr.status === "draft" && (
@@ -757,7 +862,7 @@ function ActivePanel({
           </div>
 
           {cr.status === "brief_ready" && (
-            <Button variant="primary" className="w-full" onClick={onApprove} disabled={busy}><ShieldCheck size={14} /> Approve scope</Button>
+            <Button variant="primary" className="w-full pulse-ring" onClick={onApprove} disabled={busy}><ShieldCheck size={14} /> Approve scope</Button>
           )}
         </div>
       )}
@@ -820,14 +925,17 @@ function ActivePanel({
               })}
             </div>
             {!allPassed && graded.length > 0 && (
-              <button onClick={() => onViewOutput(verifs.find((v) => v.status === "failed")?.check_name || "tests")} className="text-[11px] text-gap hover:underline mt-1.5">View full output →</button>
+              <button onClick={() => onViewOutput(verifs.find((v) => v.status === "failed")?.check_name || "tests")} className="text-[11px] text-gap hover:underline mt-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/40 rounded">View full output →</button>
             )}
           </div>
 
           <div>
             <p className="text-[11px] font-mono uppercase tracking-wide text-muted mb-1.5">Files changed</p>
             {(run.changed_files ?? []).length === 0 ? (
-              <p className="text-xs text-muted">No files were changed.</p>
+              <div className="flex flex-col items-center text-center py-4 text-muted">
+                <GitBranchIcon size={20} className="mb-1.5" />
+                <p className="text-xs">No changes yet.</p>
+              </div>
             ) : (
               (run.changed_files ?? []).map((f) => (
                 <button key={f.id} onClick={() => onOpenFile(f.path)} className="flex items-center gap-2 w-full text-left py-0.5 focus-visible:ring-2 focus-visible:ring-signal/40 rounded">
@@ -922,10 +1030,20 @@ function Terminal({
     });
   }
 
+  // Approximate per-step timestamps from the run start + cumulative real durations.
+  const startMs = run?.started_at ? new Date(run.started_at).getTime() : Date.now();
+  let cum = 0;
+  const stamped = verifs.map((v) => {
+    const ts = new Date(startMs + cum);
+    cum += v.duration_ms;
+    return { v, ts };
+  });
+  const fmt = (d: Date) => d.toTimeString().slice(0, 8);
+
   return (
     <div className={`border-t border-border shrink-0 flex flex-col ${open ? "h-56" : "h-9"}`}>
-      <button onClick={onToggle} className="h-9 shrink-0 px-3 flex items-center gap-2 text-[11px] font-mono uppercase tracking-wide text-muted hover:text-text">
-        <TerminalIcon size={13} /> Verification output
+      <button onClick={onToggle} className="h-9 shrink-0 px-3 flex items-center gap-2 text-[11px] font-mono uppercase tracking-wide text-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal/40">
+        <TerminalIcon size={13} /> Terminal
         {status === "executing" && <Loader2 size={12} className="animate-spin text-signal" />}
         {graded.length > 0 && (
           <span className={`ml-2 ${passed === graded.length ? "text-success" : "text-gap"}`}>
@@ -935,23 +1053,41 @@ function Terminal({
         <span className="ml-auto">{open ? <ChevronDown size={13} /> : <ChevronUp size={13} />}</span>
       </button>
       {open && (
-        <div className="flex-1 overflow-y-auto bg-[#15151c] text-[#d6d6dd] font-mono text-[11px]">
+        <div className="flex-1 overflow-y-auto bg-[#15151c] text-[#d6d6dd] text-[11px]" style={{ fontFamily: MONO_STACK }}>
           {verifs.length === 0 ? (
-            <p className="text-[#7a7a85] p-3">{status === "executing" ? "Running verification…" : "No verification output yet. Run a command to see real test / lint / typecheck / build results."}</p>
+            status === "executing" ? (
+              <TerminalSkeleton />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-[#7a7a85] gap-2 py-6">
+                <CheckCircle2 size={22} className="text-[#4fd18b]/60" />
+                <p>Run verification to see results.</p>
+              </div>
+            )
           ) : (
-            verifs.map((v) => {
+            stamped.map(({ v, ts }, idx) => {
               const isOpen = expanded.has(v.check_name);
               const color = v.status === "passed" ? "text-[#4fd18b]" : v.status === "failed" ? "text-[#ff6b6b]" : "text-[#7a7a85]";
+              const lines = (v.output || "(no output)").split("\n");
               return (
-                <div key={v.id} ref={(el) => { rowRefs.current[v.check_name] = el; }} className="border-b border-[#26262e]">
-                  <button onClick={() => toggle(v.check_name)} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[#1c1c25]">
+                <div key={v.id} ref={(el) => { rowRefs.current[v.check_name] = el; }} className={`border-b border-[#26262e] ${idx % 2 === 1 ? "bg-white/[0.02]" : ""}`}>
+                  <button onClick={() => toggle(v.check_name)} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[#1c1c25] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal/40">
                     {isOpen ? <ChevronDown size={12} className="text-[#7a7a85]" /> : <ChevronRight size={12} className="text-[#7a7a85]" />}
+                    <span className="text-[#6b6b78]">{fmt(ts)}</span>
                     <span className="text-[#5b8cff]">$</span>
                     <span className="text-[#e6e6ea]">{v.command || v.check_name}</span>
                     <span className={`ml-auto ${color}`}>[{v.status}]</span>
                     <span className="text-[#7a7a85]">{v.duration_ms}ms</span>
                   </button>
-                  {isOpen && <pre className="whitespace-pre-wrap text-[#b8b8c2] px-3 pb-2 pl-8">{v.output || "(no output)"}</pre>}
+                  {isOpen && (
+                    <div className="px-3 pb-2">
+                      {lines.map((ln, i) => (
+                        <div key={i} className="flex gap-3">
+                          <span className="text-[#3a3a44] select-none w-7 text-right shrink-0">{i + 1}</span>
+                          <span className="whitespace-pre-wrap text-[#b8b8c2] flex-1">{ln || " "}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -1000,7 +1136,9 @@ function Landing({ busy, onConnect, error, onRetry }: { busy: boolean; onConnect
         )}
 
         <div className="mt-8 flex flex-col items-center gap-2">
-          <Button variant="primary" onClick={onConnect} disabled={busy}>
+          <FolderGit2 size={26} className="text-signal/70" aria-hidden />
+          <p className="text-sm text-secondary">Connect a repository to begin.</p>
+          <Button variant="primary" onClick={onConnect} disabled={busy} className="mt-1">
             {busy ? <><Loader2 size={14} className="animate-spin" /> Provisioning…</> : "Connect local demo repository"}
           </Button>
           <p className="text-xs text-muted">GitHub write access isn’t configured — branch, PR &amp; merge run in labeled simulation.</p>
