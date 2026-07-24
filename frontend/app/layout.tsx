@@ -10,7 +10,7 @@ import DebugDrawer from "@/components/DebugDrawer";
 
 export const metadata = {
   title: "CareerStack",
-  description: "The operating system for your career.",
+  description: "CareerStack — AI coding with trust. Scoped changes, protected paths, real verification.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
