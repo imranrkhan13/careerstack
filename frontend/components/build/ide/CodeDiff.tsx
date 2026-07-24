@@ -37,6 +37,13 @@ export default function CodeDiff({
       highlightChanges: true,
       collapseUnchanged: { margin: 3, minSize: 4 },
     });
+    // Re-measure both panes once the mono web font is ready to avoid overlapping lines.
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        view.a.requestMeasure();
+        view.b.requestMeasure();
+      });
+    }
     return () => view.destroy();
   }, [oldValue, newValue, filename]);
 

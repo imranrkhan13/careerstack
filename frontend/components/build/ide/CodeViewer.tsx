@@ -22,6 +22,13 @@ export default function CodeViewer({ value, filename }: { value: string; filenam
       extensions={[...langFor(filename), EditorView.lineWrapping]}
       basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }}
       className="text-[12px] h-full"
+      onCreateEditor={(view) => {
+        // The mono web font loads async; re-measure once it's ready so line heights
+        // don't collapse/overlap while the editor was laid out with fallback metrics.
+        if (typeof document !== "undefined" && document.fonts?.ready) {
+          document.fonts.ready.then(() => view.requestMeasure());
+        }
+      }}
     />
   );
 }

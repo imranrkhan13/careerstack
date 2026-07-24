@@ -48,6 +48,9 @@ body {
   border-right: 1px solid #ECE7E2;
   color: #9B9B9B;
 }
+.cm-merge .cm-content {
+  padding-left: 4px;
+}
 
 /* Subtle pulsing ring to draw attention to an action awaiting the user (e.g. Approve scope) */
 @keyframes ringPulse {
