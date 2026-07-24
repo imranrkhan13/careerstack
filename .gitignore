@@ -104,6 +104,18 @@ dist/
 .python-version
 
 # =========================
+# Build Workspace runtime working copies (agent branches/edits live here)
+# =========================
+backend/.build_workspace/
+.build_workspace/
+
+# The generic build/ artifact rule above would otherwise ignore these source dirs.
+!frontend/app/build/
+!frontend/app/build/**
+!frontend/components/build/
+!frontend/components/build/**
+
+# =========================
 # Misc
 # =========================
 *.pem

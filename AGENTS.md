@@ -66,3 +66,26 @@ These vars have no code defaults, so the backend will not boot without them.
 
 - A stale `frontend/.next` cache can cause a blank page with 404s for `layout.css`/`page.js`
   chunks. Fix: stop the dev server, remove `frontend/.next`, and re-run `npm run dev`.
+
+### Build Workspace IDE (`/build`)
+
+- A single-page, Cursor-style AI coding IDE with a safety layer (scoped change plans, protected-path
+  blocking, branch isolation, real verification). Frontend: `frontend/app/build/page.tsx` +
+  `frontend/components/build/ide/*` (CodeMirror via `@uiw/react-codemirror` and `@codemirror/merge`
+  for the side-by-side diff; both dynamically imported with `ssr:false`). The older
+  `/build/new` and `/build/requests/[id]` pages still exist but the IDE is the primary entry.
+- Backend lives in `app/services/build_workspace/` — the package is named `build_workspace` (not
+  `build`) deliberately, because the repo's `.gitignore` has a generic `build/` rule; the frontend
+  `frontend/app/build/` and `frontend/components/build/` dirs are tracked only via explicit `!`
+  negations in `.gitignore` (keep those if you move files).
+- Protected paths have a severity: `blocked` (auth/billing/db/secrets — never editable, even via
+  expanded approval) vs `restricted` (API routes — editable only with explicit user approval).
+  Secret files (`.env*`) are never served to the editor or the AI.
+- Runtime working copies of the demo repo (real git branches + agent edits + `merge`) live under
+  `backend/.build_workspace/` (gitignored), provisioned from `backend/app/build_demo/sample_repo/`
+  and re-provisioned automatically if wiped. "Merge to main" does a real `git merge --no-ff` in the
+  working copy; branch/PR remains a labeled **simulation** (no GitHub write access).
+- The demo repo's verification (`lint`/`typecheck`/`test`/`build`) uses only Node built-ins (no
+  `npm install`), so runs are fast and real. Execution needs an LLM key (brief + edits) and `git`.
+- If `bw_*` table columns change, they are NOT auto-migrated (`create_all` only creates missing
+  tables). Drop the `bw_*` tables and restart to recreate, or `ALTER TABLE`.

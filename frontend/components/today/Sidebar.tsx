@@ -10,6 +10,7 @@ import {
   FileText,
   Mail,
   Users,
+  Hammer,
   Settings as SettingsIcon,
 } from "lucide-react";
 import { api, AgentStatus } from "@/lib/api";
@@ -35,6 +36,10 @@ const SECTIONS: { label: string; items: { label: string; href: string; icon: typ
       { label: "Boardy", href: "/boardy", icon: Mail },
       { label: "Network", href: "/network", icon: Users },
     ],
+  },
+  {
+    label: "Engineering",
+    items: [{ label: "Build Workspace", href: "/build", icon: Hammer }],
   },
   {
     label: "More",
