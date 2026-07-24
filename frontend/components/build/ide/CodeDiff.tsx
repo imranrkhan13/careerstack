@@ -39,14 +39,13 @@ export default function CodeDiff({
       highlightChanges: true,
       collapseUnchanged: { margin: 3, minSize: 4 },
     });
-    // Re-measure both panes once the mono web font is ready to avoid overlapping lines.
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      document.fonts.ready.then(() => {
-        view.a.requestMeasure();
-        view.b.requestMeasure();
-      });
-    }
-    return () => view.destroy();
+    // Re-measure both panes once the mono web font is ready (and shortly after) to avoid
+    // overlapping lines while the editor was laid out with fallback font metrics.
+    const remeasure = () => { view.a.requestMeasure(); view.b.requestMeasure(); };
+    if (typeof document !== "undefined" && document.fonts?.ready) document.fonts.ready.then(remeasure);
+    const t1 = setTimeout(remeasure, 60);
+    const t2 = setTimeout(remeasure, 300);
+    return () => { clearTimeout(t1); clearTimeout(t2); view.destroy(); };
   }, [oldValue, newValue, filename]);
 
   return <div ref={ref} className="cm-merge text-[12px]" />;
