@@ -5,28 +5,37 @@ import Sidebar from "@/components/today/Sidebar";
 import MobileNav from "@/components/today/MobileNav";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import ErrorPanel from "@/components/ui/ErrorPanel";
 import Skeleton from "@/components/ui/Skeleton";
+import ComposeThread from "@/components/boardy/ComposeThread";
 import { api } from "@/lib/api";
 
 export default function NetworkPage() {
   const [contacts, setContacts] = useState<Awaited<ReturnType<typeof api.boardyNetwork>> | null>(null);
   const [error, setError] = useState<any>(null);
+  const [composeTo, setComposeTo] = useState<string | null>(null);
+
+  function load() {
+    api.boardyNetwork().then(setContacts).catch((e) => setError(e));
+  }
 
   useEffect(() => {
-    api.boardyNetwork().then(setContacts).catch((e) => setError(e));
+    load();
   }, []);
 
   return (
     <div className="flex min-h-screen bg-bg">
-      <Sidebar active="Network" />
-      <MobileNav active="Network" />
+      <Sidebar active="People" />
+      <MobileNav active="People" />
       <main className="flex-1 px-8 py-6 pb-24 lg:pb-6 max-w-3xl">
-        <h1 className="text-lg font-bold text-text tracking-tight">Network</h1>
-        <p className="text-sm text-secondary mt-1 mb-6">
-          Every person Boardy has actually named across your conversations — pulled from real replies,
-          never invented. A LinkedIn link only shows if Boardy's email literally included one.
-        </p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-bold text-text tracking-tight">People</h1>
+            <p className="mt-1 text-sm text-secondary">Contacts Boardy named in your messages. Links and email addresses appear only when Boardy included them.</p>
+          </div>
+          <Button variant="secondary" size="sm" onClick={load}>Refresh</Button>
+        </div>
 
         {error && <ErrorPanel error={error} />}
 
@@ -43,8 +52,7 @@ export default function NetworkPage() {
             <p className="text-3xl mb-3">🤝</p>
             <p className="text-sm font-medium text-text mb-1.5">Nothing here yet.</p>
             <p className="text-sm text-secondary">
-              When Boardy suggests someone worth connecting with in a reply, they'll show up here
-              automatically.
+              Ask Boardy for people to meet at a company or in a field. When a reply includes a LinkedIn link or email, it appears here automatically.
             </p>
           </Card>
         )}
@@ -61,23 +69,23 @@ export default function NetworkPage() {
                   {[c.role, c.company].filter(Boolean).join(" · ") || "No role/company given"}
                 </p>
                 {c.note && <p className="text-xs text-muted mt-1">{c.note}</p>}
+                {c.email && <p className="mt-1 text-xs font-medium text-signal">{c.email}</p>}
               </div>
-              {c.linkedin_url ? (
-                <a
-                  href={c.linkedin_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-signal hover:underline shrink-0"
-                >
-                  LinkedIn ↗
-                </a>
-              ) : (
-                <span className="text-xs text-muted shrink-0">No LinkedIn given</span>
-              )}
+              <div className="flex shrink-0 items-center gap-3">
+                {c.email && <button onClick={() => setComposeTo(c.email!)} className="text-xs font-medium text-signal hover:underline">Email</button>}
+                {c.linkedin_url && <a href={c.linkedin_url} target="_blank" rel="noreferrer" className="text-xs font-medium text-signal hover:underline">LinkedIn ↗</a>}
+              </div>
             </Card>
           ))}
         </div>
       </main>
+      {composeTo && (
+        <ComposeThread
+          initialTo={composeTo}
+          onClose={() => setComposeTo(null)}
+          onCreated={() => setComposeTo(null)}
+        />
+      )}
     </div>
   );
 }

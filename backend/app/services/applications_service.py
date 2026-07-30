@@ -52,16 +52,25 @@ def create_application(
     match_score: float | None = None,
     matched_skills: list[str] | None = None,
     boardy_draft: str | None = None,
+    stage: str = "wishlist",
+    source_note: str | None = None,
 ) -> object:
+    if stage not in STAGES:
+        raise ApplicationError(
+            f"'{stage}' isn't a valid stage.",
+            code="INVALID_STAGE",
+            details=f"Must be one of: {', '.join(STAGES)}",
+        )
+
     graph = GraphService(db)
     now = datetime.utcnow().isoformat()
     data = {
         "company": company,
         "role": role,
-        "stage": "wishlist",
+        "stage": stage,
         "salary": salary,
         "notes": notes,
-        "timeline": [{"stage": "wishlist", "at": now, "note": "Application created"}],
+        "timeline": [{"stage": stage, "at": now, "note": source_note or "Application created"}],
         "jd_text": jd_text,
         "jd_required_skills": jd_required_skills,
         "match_score": match_score,
@@ -71,6 +80,19 @@ def create_application(
         "boardy_draft": boardy_draft,
     }
     return graph.create_node(user_id, NodeType.application, f"{role} @ {company}", data)
+
+
+def find_application(db: Session, user_id: str, company: str, role: str) -> object | None:
+    """Find the same application without guessing from a merely similar title."""
+    normalized_company = " ".join(company.casefold().split())
+    normalized_role = " ".join(role.casefold().split())
+    for node in list_applications(db, user_id):
+        if (
+            " ".join(str(node.data.get("company", "")).casefold().split()) == normalized_company
+            and " ".join(str(node.data.get("role", "")).casefold().split()) == normalized_role
+        ):
+            return node
+    return None
 
 
 def update_stage(db: Session, user_id: str, application_id: str, new_stage: str, note: str | None = None) -> object:

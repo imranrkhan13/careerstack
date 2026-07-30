@@ -1,15 +1,59 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.db import Base, engine
 from app.core.config import settings
+from app.core.db import Base, engine
 from app.core.error_handlers import register_error_handlers
-from app.routers import graph, today, resume, onboarding, agents, telemetry, applications, timeline, jobs, boardy, auth_google, build
-from app.events import handlers  # noqa: F401 — importing registers every event subscriber
 
-app = FastAPI(title="Careerstack API", version="0.1.0")
+from app.events import handlers  # noqa: F401
 
-ALLOWED_ORIGINS = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+from app.routers import (
+    agents,
+    applications,
+    auth_google,
+    boardy,
+    build,
+    graph,
+    jobs,
+    onboarding,
+    resume,
+    telemetry,
+    timeline,
+    today,
+)
+
+# -------------------------------------------------------------------
+# FastAPI Application
+# -------------------------------------------------------------------
+
+app = FastAPI(
+    title="Careerstack API",
+    version="0.1.0",
+)
+
+# -------------------------------------------------------------------
+# Database Startup
+# -------------------------------------------------------------------
+
+@app.on_event("startup")
+def startup() -> None:
+    Base.metadata.create_all(bind=engine)
+
+# -------------------------------------------------------------------
+# CORS
+# -------------------------------------------------------------------
+
+ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in settings.cors_allowed_origins.split(",")
+    if origin.strip()
+]
+
+print("=" * 60)
+print("Careerstack API Starting")
+print("Debug:", settings.debug)
+print("Allowed Origins:", ALLOWED_ORIGINS)
+print("=" * 60)
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,9 +61,18 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
+# -------------------------------------------------------------------
+# Error Handlers
+# -------------------------------------------------------------------
+
 register_error_handlers(app)
+
+# -------------------------------------------------------------------
+# Routers
+# -------------------------------------------------------------------
 
 app.include_router(graph.router)
 app.include_router(today.router)
@@ -34,12 +87,14 @@ app.include_router(boardy.router)
 app.include_router(auth_google.router)
 app.include_router(build.router)
 
+# -------------------------------------------------------------------
+# Health
+# -------------------------------------------------------------------
 
-@app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
-
-
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 def health():
-    return {"status": "ok", "debug": settings.debug, "cors_allowed_origins": ALLOWED_ORIGINS}
+    return {
+        "status": "ok",
+        "debug": settings.debug,
+        "cors_allowed_origins": ALLOWED_ORIGINS,
+    }

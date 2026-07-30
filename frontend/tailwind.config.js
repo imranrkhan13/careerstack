@@ -22,7 +22,7 @@ module.exports = {
         warning: "#F59E0B",
       },
       fontFamily: {
-        sans: ["Plus Jakarta Sans", "-apple-system", "sans-serif"],
+        sans: ["Inter", "-apple-system", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
     },

@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Inbox, Briefcase, FileText, Mail, Settings as SettingsIcon } from "lucide-react";
+import { Inbox, Briefcase, Mail, Users, Settings as SettingsIcon } from "lucide-react";
 
 const ITEMS = [
   { label: "Today", href: "/today", icon: Inbox },
   { label: "Applications", href: "/applications", icon: Briefcase },
-  { label: "Resume", href: "/resume", icon: FileText },
   { label: "Boardy", href: "/boardy", icon: Mail },
+  { label: "People", href: "/network", icon: Users },
   { label: "Settings", href: "/settings", icon: SettingsIcon },
 ];
 

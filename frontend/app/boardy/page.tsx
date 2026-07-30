@@ -25,8 +25,9 @@ function relativeTime(iso: string | null): string {
 export default function BoardyPage() {
   const [threads, setThreads] = useState<BoardyThread[] | null>(null);
   const [selected, setSelected] = useState<BoardyThread | null>(null);
-  const [showCompose, setShowCompose] = useState(false);
+  const [composeDraft, setComposeDraft] = useState<{ to?: string } | null>(null);
   const [polling, setPolling] = useState(false);
+  const [syncingApplications, setSyncingApplications] = useState(false);
   const [pollMessage, setPollMessage] = useState<string | null>(null);
   const [error, setError] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -43,7 +44,23 @@ export default function BoardyPage() {
 
   useEffect(() => {
     load();
+    syncApplications(true);
   }, []);
+
+  async function syncApplications(silent = false) {
+    if (!silent) setSyncingApplications(true);
+    try {
+      const { linked } = await api.syncBoardyApplications();
+      if (linked.length > 0) {
+        setPollMessage(`Added ${linked.length} sent application${linked.length !== 1 ? "s" : ""} to Applied.`);
+        load();
+      }
+    } catch (e: any) {
+      if (!silent) setError(e);
+    } finally {
+      if (!silent) setSyncingApplications(false);
+    }
+  }
 
   async function poll(silent = false) {
     if (!silent) {
@@ -82,14 +99,14 @@ export default function BoardyPage() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex h-[100dvh] overflow-hidden bg-bg pb-14 lg:pb-0">
       <Sidebar active="Boardy" />
       <MobileNav active="Boardy" />
 
-      <div className="w-72 shrink-0 border-r border-border flex flex-col">
+      <div className="flex min-h-0 w-72 shrink-0 flex-col border-r border-border">
         <div className="px-4 py-4 border-b border-border flex items-center justify-between">
           <h1 className="text-sm font-semibold text-text">Boardy</h1>
-          <Button variant="ghost" size="sm" onClick={() => setShowCompose(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setComposeDraft({})}>
             + New
           </Button>
         </div>
@@ -97,6 +114,14 @@ export default function BoardyPage() {
           <Button variant="secondary" size="sm" className="w-full" onClick={() => poll()} disabled={polling}>
             {polling ? "Checking Gmail…" : "Check for replies"}
           </Button>
+          <button
+            type="button"
+            onClick={() => syncApplications()}
+            disabled={syncingApplications}
+            className="mt-1.5 w-full text-center text-[11px] font-medium text-muted transition-colors hover:text-signal disabled:opacity-50"
+          >
+            {syncingApplications ? "Syncing sent applications…" : "Sync sent applications"}
+          </button>
           {pollMessage && <p className="text-[11px] text-muted mt-1.5">{pollMessage}</p>}
         </div>
         {error && <div className="px-4 py-2"><ErrorPanel error={error} /></div>}
@@ -106,7 +131,7 @@ export default function BoardyPage() {
               <p className="text-2xl mb-2">💬</p>
               <p className="text-xs font-medium text-text mb-1">No conversations yet.</p>
               <p className="text-xs text-secondary mb-3">Start one to get outreach drafts and resume feedback.</p>
-              <Button variant="primary" size="sm" onClick={() => setShowCompose(true)}>
+              <Button variant="primary" size="sm" onClick={() => setComposeDraft({})}>
                 Start a conversation
               </Button>
             </li>
@@ -142,25 +167,31 @@ export default function BoardyPage() {
       </div>
 
       {selected ? (
-        <ThreadDetail thread={selected} refreshKey={refreshKey} onThreadUpdated={load} />
+        <ThreadDetail
+          thread={selected}
+          refreshKey={refreshKey}
+          onThreadUpdated={load}
+          onComposeEmail={(to) => setComposeDraft({ to })}
+        />
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-sm text-muted mb-3">Select a conversation, or start a new one.</p>
-            <Button variant="secondary" size="sm" onClick={() => setShowCompose(true)}>
+            <Button variant="secondary" size="sm" onClick={() => setComposeDraft({})}>
               Start a conversation
             </Button>
           </div>
         </div>
       )}
 
-      {showCompose && (
+      {composeDraft && (
         <ComposeThread
-          onClose={() => setShowCompose(false)}
+          initialTo={composeDraft.to}
+          onClose={() => setComposeDraft(null)}
           onCreated={(t) => {
             setThreads((prev) => [...(prev ?? []), t]);
             setSelected(t);
-            setShowCompose(false);
+            setComposeDraft(null);
           }}
         />
       )}

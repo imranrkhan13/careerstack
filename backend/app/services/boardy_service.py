@@ -33,6 +33,15 @@ from app.events.bus import event_bus
 from app.events.types import BOARDY_REPLY_RECEIVED, RECOMMENDATION_ACCEPTED, RECOMMENDATION_REJECTED
 
 DEFAULT_FOLLOWUP_DAYS = 3
+APPLICATION_SENT_NOTE = "Application email sent through Careerstack"
+
+# Only trust a subject that explicitly names both pieces of the application.
+# This is intentionally strict: a vague thread such as "Resume help" must not
+# create a made-up card on the pipeline.
+APPLICATION_SUBJECT = re.compile(
+    r"^\s*(?:application\s+(?:for|to)\s*:?\s*)?(?P<role>.+?)\s+(?:at|@)\s+(?P<company>[^—–|]+?)(?:\s*[-—–|].*)?$",
+    re.IGNORECASE,
+)
 
 DRAFT_SYSTEM = (
     "You draft a short, specific, warm outreach email a job candidate could send "
@@ -88,7 +97,7 @@ the first one — treat all of them the same way:
   - Boardy reporting people it has ALREADY reached out to on the candidate's behalf ("these are the
     people I have reached out to", "I contacted the following people for you").
   - A plain list of names with companies/roles, even without an explicit recommendation framing.
-For "note", write one short, concrete sentence using only what's actually in the email (their
+For "email", capture it only when the email address is literally present beside or clearly associated with that person. For "note", write one short, concrete sentence using only what's actually in the email (their
 role/company/why they're relevant, or that Boardy already reached out to them and what the status is)
 — never a generic filler like "a good connection."
 
@@ -100,7 +109,7 @@ Return ONLY valid JSON, no markdown fences, matching exactly this shape:
     {{"original_text": "the exact or closely-paraphrased bullet text Boardy specifically criticized", "suggested_text": "the suggested replacement, or null if none given", "reasoning": "Boardy's actual stated critique of this specific bullet, quoted or closely paraphrased — never a placeholder"}}
   ],
   "suggested_contacts": [
-    {{"name": "string", "company": "string or null", "role": "string or null", "linkedin_url": "string or null, only if literally present in the text", "note": "one short, concrete sentence about who they are or why Boardy suggested them, using only what's in the email"}}
+    {{"name": "string", "company": "string or null", "role": "string or null", "linkedin_url": "string or null, only if literally present in the text", "email": "string or null, only if literally present in the text", "note": "one short, concrete sentence about who they are or why Boardy suggested them, using only what's in the email"}}
   ]
 }}
 If this email isn't resume bullet critique, "weak_bullets" is []. If it names no people, "suggested_contacts" is []."""
@@ -204,7 +213,7 @@ def send_reply(db: Session, user_id: str, thread_id: str, body: str) -> dict:
     return {"id": message.id, **message.data}
 
 
-def create_thread(
+async def create_thread(
     db: Session, user_id: str, to_address: str, subject: str, body: str, application_id: str | None = None
 ) -> dict:
     graph = GraphService(db)
@@ -240,6 +249,18 @@ def create_thread(
             "at": now,
         },
     )
+    # Sending an application is the real-world event that matters. Link it to
+    # the pipeline immediately rather than waiting until a later resume compile
+    # happens to touch the same conversation.
+    if not application_id:
+        await ensure_application_for_thread(
+            db,
+            user_id,
+            thread_node.id,
+            initial_stage="applied",
+            source_note=APPLICATION_SENT_NOTE,
+        )
+
     return _serialize_thread(thread_node)
 
 
@@ -348,6 +369,7 @@ async def _parse_and_create_recommendations(
     graph = GraphService(db)
 
     latex = _extract_latex_resume(reply_body)
+    created = []
     if latex:
         # Boardy sent a full resume, not bullet-level feedback — a different kind
         # of recommendation, and skips the text-feedback LLM parse entirely (both
@@ -364,18 +386,24 @@ async def _parse_and_create_recommendations(
                 "status": "pending",
             },
         )
-        return [_serialize_recommendation(node)]
+        created.append(_serialize_recommendation(node))
+
+    # Keep the contact parser useful even when the message also contains a full
+    # LaTeX resume. Sending a resume should not hide the LinkedIn/email details
+    # Boardy included around it.
+    reply_for_parse = LATEX_PATTERN.sub("", reply_body) if latex else reply_body
+    if not reply_for_parse.strip():
+        return created
 
     learning_context = _learning_context(db, user_id)
     system = REPLY_PARSE_SYSTEM_TEMPLATE.format(learning_context=learning_context)
 
     from app.services.provider_manager import complete_json
-    parsed, provider = await complete_json(system, reply_body, temperature=0.1)
+    parsed, provider = await complete_json(system, reply_for_parse, temperature=0.1)
 
     versions = list_versions(db, user_id, limit=1)
     current_ast = versions[0].content if versions else {"bullets": []}
 
-    created = []
     _NO_FEEDBACK_MARKERS = ("no feedback", "does not provide", "not mentioned", "not specifically",
                              "no specific", "not addressed", "not critiqued")
     for item in parsed.get("weak_bullets", []):
@@ -406,15 +434,30 @@ async def _parse_and_create_recommendations(
         )
         created.append(_serialize_recommendation(node))
 
-    existing = {(n.title.lower(), n.data.get("company")) for n in graph.list_nodes(user_id, NodeType.connection)}
+    existing = {(n.title.lower(), n.data.get("company")): n for n in graph.list_nodes(user_id, NodeType.connection)}
+    changed_existing = False
     for contact in parsed.get("suggested_contacts", []):
         name = contact.get("name")
         if not name:
             continue
         key = (name.lower(), contact.get("company"))
-        if key in existing:
+        existing_node = existing.get(key)
+        if existing_node:
+            # A later Boardy reply may add a LinkedIn URL or email address for a
+            # person already listed. Enrich the original contact instead of
+            # creating duplicates or discarding that new actionable detail.
+            data = dict(existing_node.data)
+            node_changed = False
+            for field in ("company", "role", "linkedin_url", "email", "note"):
+                if contact.get(field) and not data.get(field):
+                    data[field] = contact[field]
+                    node_changed = True
+                    changed_existing = True
+            existing_node.data = data
+            if node_changed:
+                db.add(existing_node)
             continue
-        graph.create_node(
+        connection_node = graph.create_node(
             user_id,
             NodeType.connection,
             name,
@@ -422,12 +465,16 @@ async def _parse_and_create_recommendations(
                 "company": contact.get("company"),
                 "role": contact.get("role"),
                 "linkedin_url": contact.get("linkedin_url"),
+                "email": contact.get("email"),
                 "note": contact.get("note"),
                 "source_thread_id": thread_node_id,
                 "suggested_by": "boardy",
             },
         )
-        existing.add(key)
+        existing[key] = connection_node
+
+    if changed_existing:
+        db.commit()
 
     return created
 
@@ -507,14 +554,29 @@ def get_followups_due(db: Session, user_id: str) -> list[dict]:
     return due
 
 
-async def ensure_application_for_thread(db: Session, user_id: str, thread_node_id: str) -> str | None:
+def _application_candidate_from_subject(subject: str) -> dict[str, str] | None:
+    normalized = re.sub(r"^(?:re:\s*)+", "", subject, flags=re.IGNORECASE).strip()
+    match = APPLICATION_SUBJECT.match(normalized)
+    if not match:
+        return None
+
+    role = match.group("role").strip(" -—–")
+    company = match.group("company").strip(" -—–")
+    return {"role": role, "company": company} if role and company else None
+
+
+async def ensure_application_for_thread(
+    db: Session,
+    user_id: str,
+    thread_node_id: str,
+    initial_stage: str = "wishlist",
+    source_note: str | None = None,
+) -> str | None:
     """
-    Auto-links a Boardy conversation to a real Application entry, using the JD
-    from the message that started the conversation — so downloading a
-    Boardy-compiled resume shows up in Applications automatically, instead of
-    requiring the separate "New from JD" flow to also be run manually.
-    Best-effort: returns None (and leaves the resume download working
-    regardless) if there's nothing parseable to link.
+    Auto-links a Boardy conversation to a real Application entry. A clearly
+    addressed subject (for example, "Founding Engineer at ZuAI") is enough to
+    create the card immediately when the email is sent; otherwise the existing
+    JD parser is used as a best-effort fallback for resume workflows.
     """
     graph = GraphService(db)
     thread = graph.get_node(user_id, thread_node_id)
@@ -532,29 +594,43 @@ async def ensure_application_for_thread(db: Session, user_id: str, thread_node_i
 
     from app.services.jd_service import parse_jd, JDParseError
     from app.services.match_scoring import compute_match
-    from app.services.applications_service import create_application
+    from app.services.applications_service import create_application, find_application, update_stage
 
-    try:
-        parsed = await parse_jd(jd_text)
-    except (JDParseError, AppError):
-        return None
+    subject_candidate = _application_candidate_from_subject(thread.data.get("subject", ""))
+    parsed: dict = {}
+    if not subject_candidate:
+        try:
+            parsed = await parse_jd(jd_text)
+        except (JDParseError, AppError):
+            return None
+
+    company = (subject_candidate or {}).get("company") or parsed.get("company")
+    role = (subject_candidate or {}).get("role") or parsed.get("role")
+    if not company or not role:
+        return None  # nothing explicitly identifying an application
 
     required = parsed.get("required_skills") or []
-    if not required and not parsed.get("company"):
-        return None  # not actually a JD — nothing worth creating an application for
-
     skill_names = [n.title for n in graph.list_nodes(user_id, NodeType.skill)]
-    score, matched = compute_match(skill_names, required)
+    score, matched = compute_match(skill_names, required) if required else (None, [])
 
-    app_node = create_application(
-        db, user_id,
-        company=parsed.get("company") or "Unknown company",
-        role=parsed.get("role") or thread.data.get("subject", "Role"),
-        jd_text=jd_text,
-        jd_required_skills=required,
-        match_score=score,
-        matched_skills=matched,
-    )
+    app_node = find_application(db, user_id, company, role)
+    if app_node:
+        # A saved target becomes Applied only after the email is genuinely sent.
+        if initial_stage == "applied" and app_node.data.get("stage") == "wishlist":
+            app_node = update_stage(db, user_id, app_node.id, "applied", source_note or APPLICATION_SENT_NOTE)
+    else:
+        app_node = create_application(
+            db,
+            user_id,
+            company=company,
+            role=role,
+            jd_text=jd_text,
+            jd_required_skills=required,
+            match_score=score,
+            matched_skills=matched,
+            stage=initial_stage,
+            source_note=source_note,
+        )
 
     data = dict(thread.data)
     data["application_id"] = app_node.id
@@ -563,3 +639,22 @@ async def ensure_application_for_thread(db: Session, user_id: str, thread_node_i
     db.commit()
 
     return app_node.id
+
+
+async def sync_explicit_thread_applications(db: Session, user_id: str) -> list[dict]:
+    """Backfill only conversations whose subjects name a role and company clearly."""
+    graph = GraphService(db)
+    linked = []
+    for thread in graph.list_nodes(user_id, NodeType.boardy_thread):
+        if thread.data.get("application_id") or not _application_candidate_from_subject(thread.data.get("subject", "")):
+            continue
+        application_id = await ensure_application_for_thread(
+            db,
+            user_id,
+            thread.id,
+            initial_stage="applied",
+            source_note=APPLICATION_SENT_NOTE,
+        )
+        if application_id:
+            linked.append({"thread_id": thread.id, "application_id": application_id})
+    return linked

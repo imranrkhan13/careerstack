@@ -11,6 +11,7 @@ import Badge from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
 import LinkedText from "@/components/ui/LinkedText";
 import ErrorPanel from "@/components/ui/ErrorPanel";
+import PipelineChart from "./PipelineChart";
 
 const STAGE_LABEL: Record<string, string> = {
   wishlist: "Wishlist",
@@ -59,11 +60,6 @@ export default function KanbanBoard() {
     }
   }
 
-  const totalApplications = apps.length;
-  const reachedInterview = apps.filter((a) => a.timeline.some((t) => t.stage === "interview")).length;
-  const reachedOffer = apps.filter((a) => a.timeline.some((t) => t.stage === "offer")).length;
-  const distinctCompanies = new Set(apps.map((a) => a.company)).size;
-
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <div className="px-6 py-5 border-b border-border flex items-center justify-between">
@@ -81,14 +77,7 @@ export default function KanbanBoard() {
         </div>
       </div>
 
-      {apps.length > 0 && (
-        <div className="px-6 py-5 border-b border-border grid grid-cols-4 gap-6">
-          <Stat label="Applications" value={totalApplications} />
-          <Stat label="Interviews" value={reachedInterview} />
-          <Stat label="Offers" value={reachedOffer} />
-          <Stat label="Companies" value={distinctCompanies} />
-        </div>
-      )}
+      {apps.length > 0 && <div className="border-b border-border px-6 py-5"><PipelineChart applications={apps} /></div>}
 
       {error && <div className="px-6 py-2"><ErrorPanel error={error} /></div>}
 
@@ -399,17 +388,6 @@ function PropertyRow({ label, children }: { label: string; children: React.React
     <div className="flex items-center justify-between">
       <span className="text-xs text-muted">{label}</span>
       <span className="text-xs text-text">{children}</span>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  // Deliberately no invented trend arrows ("↑ 18% this month") — that would
-  // need a historical baseline we don't compute. Real counts only.
-  return (
-    <div>
-      <p className="text-3xl font-bold text-text tracking-tight">{value}</p>
-      <p className="text-xs text-secondary mt-0.5">{label}</p>
     </div>
   );
 }

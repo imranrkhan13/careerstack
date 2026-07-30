@@ -7,7 +7,6 @@ not a machine-learned ranking:
   1. Boardy follow-ups overdue (time-sensitive, easy to forget)
   2. Pending Boardy recommendations (quick wins already generated)
   3. Stale applications (your resume changed, worth a quick look)
-  4. Skill gaps (longer-term, lowest urgency)
 
 Within a category, items are ordered by their own real signal (e.g. days
 waiting, descending).
@@ -18,7 +17,6 @@ from app.models.graph import NodeType
 from app.services.graph_service import GraphService
 from app.services import gmail_service
 from app.services.boardy_service import get_followups_due
-from app.services.gap_detection import detect_gaps
 
 
 def build_command_center(db: Session, user_id: str) -> dict:
@@ -35,9 +33,6 @@ def build_command_center(db: Session, user_id: str) -> dict:
     applications = graph.list_nodes(user_id, NodeType.application)
     stale_apps = [a for a in applications if a.data.get("stale")]
 
-    skill_names = [n.title for n in graph.list_nodes(user_id, NodeType.skill)]
-    gaps = detect_gaps(skill_names) if skill_names else []
-
     top_actions = []
     for t in followups:
         top_actions.append(
@@ -50,13 +45,19 @@ def build_command_center(db: Session, user_id: str) -> dict:
             }
         )
     for r in pending_recs[:5]:
+        if r.data.get("kind") == "latex_resume":
+            title = "Boardy sent a LaTeX resume"
+            detail = "Open the conversation to review or compile the resume Boardy sent."
+        else:
+            title = r.data.get("suggested_text") or r.data.get("original_text") or r.title
+            detail = r.data.get("reasoning") or "Open Boardy to review the exact suggestion."
         top_actions.append(
             {
                 "kind": "boardy_recommendation",
-                "title": "Boardy suggested a resume change",
-                "detail": (r.data.get("reasoning") or "")[:120],
+                "title": title[:140],
+                "detail": detail[:200],
                 "ref_id": r.id,
-                "action": "Review",
+                "action": "Open Boardy",
             }
         )
     for a in stale_apps[:5]:
@@ -69,17 +70,6 @@ def build_command_center(db: Session, user_id: str) -> dict:
                 "action": "Review",
             }
         )
-    for g in gaps:
-        top_actions.append(
-            {
-                "kind": "skill_gap",
-                "title": f"Portfolio missing {g}",
-                "detail": "Checked against a fixed backend-infra checklist, not a market model.",
-                "ref_id": None,
-                "action": "Explain",
-            }
-        )
-
     return {
         "gmail": gmail_status,
         "boardy": {
@@ -91,6 +81,6 @@ def build_command_center(db: Session, user_id: str) -> dict:
             "total": len(applications),
             "stale_count": len(stale_apps),
         },
-        "gaps": gaps,
+        "gaps": [],
         "top_actions": top_actions,
     }

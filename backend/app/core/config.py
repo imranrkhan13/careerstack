@@ -5,8 +5,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # Database
@@ -24,31 +24,29 @@ class Settings(BaseSettings):
 
     # GitHub
     github_client_id: str | None = None
-    github_client_secret: str |None = None
+    github_client_secret: str | None = None
 
     # Google
     google_client_id: str
     google_client_secret: str
     google_redirect_uri: str
 
-    google_auth_uri: str = "https://accounts.google.com/o/oauth2/auth"
-    google_token_uri: str = "https://oauth2.googleapis.com/token"
+    # Also load these from .env instead of hardcoding
+    google_auth_uri: str
+    google_token_uri: str
+    google_scopes: str
 
-    google_scopes: str = (
-        "https://www.googleapis.com/auth/gmail.send,"
-        "https://www.googleapis.com/auth/gmail.readonly"
-    )
-
+    # Boardy
     boardy_email_address: str
 
     # JWT
     jwt_secret: str
 
     # CORS
-    cors_allowed_origins: str = "http://localhost:3000"
+    cors_allowed_origins: str
 
     # Debug
-    debug: bool = True
+    debug: bool = False
 
 
 settings = Settings()

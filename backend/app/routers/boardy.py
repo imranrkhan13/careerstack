@@ -40,8 +40,8 @@ def thread_recommendations(thread_id: str, db: Session = Depends(get_db), user_i
 
 
 @router.post("/threads")
-def create_thread(payload: ThreadCreate, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    return boardy_service.create_thread(
+async def create_thread(payload: ThreadCreate, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    return await boardy_service.create_thread(
         db, user_id, payload.to_address, payload.subject, payload.body, payload.application_id
     )
 
@@ -61,6 +61,12 @@ def reply_to_thread(thread_id: str, payload: ReplyBody, db: Session = Depends(ge
 async def poll(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     new_recs = await boardy_service.poll_replies(db, user_id)
     return {"new_recommendations": new_recs}
+
+
+@router.post("/sync-applications")
+async def sync_applications(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    linked = await boardy_service.sync_explicit_thread_applications(db, user_id)
+    return {"linked": linked}
 
 
 @router.post("/recommendations/{recommendation_id}/accept")

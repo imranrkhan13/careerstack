@@ -43,9 +43,8 @@ export default function SettingsPage() {
         <Card>
           <p className="text-sm font-semibold text-text mb-1">Gmail</p>
           <p className="text-xs text-secondary mb-3">
-            Needed to send Boardy emails and detect replies. Requires a real Google
-            OAuth client configured on the backend (GOOGLE_CLIENT_ID/SECRET) — see
-            the README for setup.
+            Needed to send Boardy emails and detect replies. Requires a Google OAuth client
+            configured on the backend.
           </p>
 
           {status?.connected ? (

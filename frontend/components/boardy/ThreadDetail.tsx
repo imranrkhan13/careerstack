@@ -9,8 +9,9 @@ import LatexResumeCard from "./LatexResumeCard";
 import { Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
-import LinkedText from "@/components/ui/LinkedText";
+import LinkedText, { EmailLink } from "@/components/ui/LinkedText";
 import Skeleton from "@/components/ui/Skeleton";
+import { Check, Copy, Mail, Send } from "lucide-react";
 
 function timeLabel(iso: string): string {
   const d = new Date(iso);
@@ -34,10 +35,12 @@ export default function ThreadDetail({
   thread,
   refreshKey,
   onThreadUpdated,
+  onComposeEmail,
 }: {
   thread: BoardyThread;
   refreshKey?: number;
   onThreadUpdated?: () => void;
+  onComposeEmail?: (email: string) => void;
 }) {
   const [messages, setMessages] = useState<BoardyMessage[] | null>(null);
   const [recs, setRecs] = useState<Recommendation[] | null>(null);
@@ -45,6 +48,7 @@ export default function ThreadDetail({
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [optimisticText, setOptimisticText] = useState<string | null>(null);
+  const [copiedItem, setCopiedItem] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -102,16 +106,49 @@ export default function ThreadDetail({
     }
   }
 
+  async function copyText(value: string, item: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedItem(item);
+      window.setTimeout(() => setCopiedItem((current) => (current === item ? null : current)), 1800);
+    } catch {
+      setError({ message: "Couldn’t copy that text. Please select it and copy manually." });
+    }
+  }
+
   return (
-    <div className="flex-1 flex flex-col min-w-0">
-      <div className="px-6 py-4 border-b border-border">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-sm font-semibold text-text">{thread.subject}</h2>
-          <Badge tone={thread.status === "replied" ? "signal" : "neutral"}>
-            {thread.status === "replied" ? "Replied" : "Awaiting reply"}
-          </Badge>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="border-b border-border bg-surface/70 px-6 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-text">{thread.subject}</h2>
+            <p className="mt-1 text-xs text-secondary">
+              Conversation with <EmailLink email={thread.to_address} onCompose={onComposeEmail}>{thread.to_address}</EmailLink>
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onComposeEmail?.(thread.to_address)}
+              disabled={!onComposeEmail}
+              title={`Start a new email to ${thread.to_address}`}
+            >
+              <Mail size={13} aria-hidden="true" />
+              <span>New email</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => copyText(thread.to_address, "address")}
+              title="Copy email address"
+              aria-label="Copy email address"
+            >
+              {copiedItem === "address" ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+              <span className="sr-only">{copiedItem === "address" ? "Email address copied" : "Copy email address"}</span>
+            </Button>
+          </div>
         </div>
-        <p className="text-xs text-secondary">With {thread.to_address}</p>
         {needsFollowup && (
           <div className="mt-3 rounded-lg border border-gap/20 bg-gap/10 px-3 py-2">
             <p className="text-xs text-gap">No reply in {daysSinceOutbound} days — worth a follow-up.</p>
@@ -121,7 +158,7 @@ export default function ThreadDetail({
 
       {error && <div className="px-6 pt-3"><ErrorPanel error={error} /></div>}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-5 space-y-3">
         {messages === null && (
           <div className="space-y-3">
             <Skeleton className="h-14 w-2/3 ml-auto rounded-xl" />
@@ -139,12 +176,30 @@ export default function ThreadDetail({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
-                className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}
+                className={`group flex items-start gap-2.5 ${isOutbound ? "justify-end" : "justify-start"}`}
               >
-                <div className={`max-w-[75%] rounded-xl px-3.5 py-2.5 ${isOutbound ? "bg-signal/15" : "bg-raised border border-border"}`}>
-                  <p className="text-sm text-text whitespace-pre-wrap"><LinkedText text={m.body} /></p>
-                  <p className="text-[11px] text-muted mt-1.5">{timeLabel(m.at)}</p>
+                {!isOutbound && (
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-raised text-[11px] font-semibold text-secondary">B</div>
+                )}
+                <div className={`max-w-[78%] rounded-2xl px-3.5 py-3 shadow-[0_1px_2px_rgba(24,24,24,0.03)] ${isOutbound ? "bg-signalLight" : "border border-border bg-surface"}`}>
+                  <div className="mb-1.5 flex items-center justify-between gap-4">
+                    <p className="text-[11px] font-semibold text-secondary">{isOutbound ? "You" : "Boardy"}</p>
+                    <p className="text-[11px] text-muted">{timeLabel(m.at)}</p>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-text"><LinkedText text={m.body} onEmailClick={onComposeEmail} /></p>
+                  <button
+                    type="button"
+                    onClick={() => copyText(m.body, `message-${m.id}`)}
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted opacity-0 transition-opacity hover:text-signal focus:opacity-100 focus:outline-none group-hover:opacity-100"
+                    aria-label="Copy message"
+                  >
+                    {copiedItem === `message-${m.id}` ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
+                    {copiedItem === `message-${m.id}` ? "Copied" : "Copy"}
+                  </button>
                 </div>
+                {isOutbound && (
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-signal text-[11px] font-semibold text-white">Y</div>
+                )}
               </motion.div>
 
               {!isOutbound && msgRecs.length > 0 && (
@@ -185,12 +240,16 @@ export default function ThreadDetail({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="flex justify-end"
+              className="flex items-start justify-end gap-2.5"
             >
-              <div className="max-w-[75%] rounded-xl px-3.5 py-2.5 bg-signal/15 opacity-60">
-                <p className="text-sm text-text whitespace-pre-wrap">{optimisticText}</p>
-                <p className="text-[11px] text-muted mt-1.5">Sending…</p>
+              <div className="max-w-[78%] rounded-2xl bg-signalLight px-3.5 py-3 opacity-65">
+                <div className="mb-1.5 flex items-center justify-between gap-4">
+                  <p className="text-[11px] font-semibold text-secondary">You</p>
+                  <p className="text-[11px] text-muted" aria-live="polite">Sending…</p>
+                </div>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-text"><LinkedText text={optimisticText} onEmailClick={onComposeEmail} /></p>
               </div>
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-signal text-[11px] font-semibold text-white">Y</div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -226,18 +285,25 @@ export default function ThreadDetail({
 
       {/* Quick reply — reuses thread.to_address, never asks for the email again.
           Enter sends, Shift+Enter makes a new line — standard chat behavior. */}
-      <div className="px-6 py-4 border-t border-border">
-        <Textarea
-          value={replyText}
-          onChange={(e) => setReplyText(e.target.value)}
-          onKeyDown={onKeyDown}
-          rows={2}
-          placeholder={`Reply to ${thread.to_address}… (Enter to send, Shift+Enter for a new line)`}
-          className="mb-2"
-        />
-        <Button variant="primary" size="sm" onClick={sendReply} disabled={sending || !replyText.trim()}>
-          {sending ? "Sending…" : "Send reply"}
-        </Button>
+      <div className="border-t border-border bg-surface/70 px-6 py-4">
+        <div className="rounded-[18px] border border-border bg-surface p-1.5 shadow-[0_1px_2px_rgba(24,24,24,0.03)] transition-colors focus-within:border-signal/60 focus-within:ring-2 focus-within:ring-signal/10">
+          <Textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={onKeyDown}
+            rows={2}
+            aria-label={`Reply to ${thread.to_address}`}
+            placeholder={`Reply to ${thread.to_address}…`}
+            className="min-h-[74px] border-0 bg-transparent px-2.5 py-2 focus:border-transparent focus-visible:ring-0"
+          />
+          <div className="flex items-center justify-between gap-3 px-1 pb-0.5">
+            <p className="text-[11px] text-muted">Enter to send · Shift + Enter for a new line</p>
+            <Button variant="primary" size="sm" onClick={sendReply} disabled={sending || !replyText.trim()}>
+              <Send size={13} aria-hidden="true" />
+              {sending ? "Sending…" : "Send"}
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

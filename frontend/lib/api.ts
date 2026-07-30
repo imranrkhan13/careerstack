@@ -329,6 +329,7 @@ export const api = {
       body: JSON.stringify({ to_address, subject, body, application_id: application_id || null }),
     }),
   pollBoardy: () => request<{ new_recommendations: Recommendation[] }>("/boardy/poll", { method: "POST" }),
+  syncBoardyApplications: () => request<{ linked: { thread_id: string; application_id: string }[] }>("/boardy/sync-applications", { method: "POST" }),
   acceptRecommendation: (id: string, edited_text?: string) =>
     request<{ recommendation: Recommendation; version: ResumeVersionResult }>(`/boardy/recommendations/${id}/accept`, {
       method: "POST",
@@ -344,7 +345,7 @@ export const api = {
   boardyFollowupsDue: () => request<any[]>("/boardy/followups-due"),
   boardyNetwork: () =>
     request<
-      { id: string; name: string; company: string | null; role: string | null; linkedin_url: string | null; note: string | null; created_at: string }[]
+      { id: string; name: string; company: string | null; role: string | null; linkedin_url: string | null; email: string | null; note: string | null; created_at: string }[]
     >("/boardy/network"),
 };
 

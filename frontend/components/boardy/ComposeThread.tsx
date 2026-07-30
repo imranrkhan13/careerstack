@@ -12,11 +12,13 @@ const REMEMBERED_ADDRESS_KEY = "Careerstack:boardy_address";
 export default function ComposeThread({
   onClose,
   onCreated,
+  initialTo = "",
 }: {
   onClose: () => void;
   onCreated: (t: BoardyThread) => void;
+  initialTo?: string;
 }) {
-  const [to, setTo] = useState("");
+  const [to, setTo] = useState(initialTo);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -24,12 +26,18 @@ export default function ComposeThread({
   const [remembered, setRemembered] = useState(false);
 
   useEffect(() => {
+    if (initialTo) {
+      setTo(initialTo);
+      setRemembered(false);
+      return;
+    }
+
     const saved = window.localStorage.getItem(REMEMBERED_ADDRESS_KEY);
     if (saved) {
       setTo(saved);
       setRemembered(true);
     }
-  }, []);
+  }, [initialTo]);
 
   async function send() {
     setSending(true);
@@ -54,19 +62,21 @@ export default function ComposeThread({
         className="w-full max-w-lg rounded-xl border border-border bg-surface p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-sm font-semibold text-text mb-3">New Boardy conversation</h2>
+        <h2 className="text-sm font-semibold text-text mb-3">New email</h2>
         <p className="text-xs text-muted mb-3">
-          Sends for real via your connected Gmail account. Replies inside a conversation never
-          ask for this address again — see the reply box in each thread.
+          Write and send through your connected Gmail account without leaving Careerstack.
         </p>
         <Input
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          placeholder="To — Boardy's email address"
+          placeholder="To — email address"
           className="mb-2"
         />
         {remembered && <p className="text-[11px] text-signal -mt-1 mb-2">Remembered from last time — edit if needed.</p>}
         <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="mb-2" />
+        <p className="-mt-0.5 mb-2 text-[11px] text-muted">
+          Tip: use “Role at Company” in the subject and Careerstack will add it to Applied as soon as the email sends.
+        </p>
         <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} placeholder="Message…" className="mb-3" />
         {error && <div className="mb-2"><ErrorPanel error={error} /></div>}
         <div className="flex gap-2">
